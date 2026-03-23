@@ -69,7 +69,8 @@ const buildQuery = (ref: any) => {
   if (isQuery) {
     for (const clause of ref.clauses) {
       if (clause.type === 'orderBy') {
-        q = q.order(clause.field, { ascending: clause.direction === 'asc' });
+        const snakeField = clause.field.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        q = q.order(snakeField, { ascending: clause.direction === 'asc' });
       }
     }
   }
