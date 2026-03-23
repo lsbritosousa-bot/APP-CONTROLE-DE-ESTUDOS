@@ -120,18 +120,16 @@ export const onSnapshot = (ref: any, callback: (snapshot: any) => void) => {
   fetchAndNotify();
 
   // Create channel for realtime
-  let filterString = '';
+  // Supabase realtime filter only supports a single equality.
   const filterEntries = Object.entries(filters);
-  if (filterEntries.length > 0) {
-    filterString = filterEntries.map(([k, v]) => `${k}=eq.${v}`).join(',');
-  }
+  const filterString = filterEntries.length > 0 ? `${filterEntries[0][0]}=eq.${filterEntries[0][1]}` : undefined;
 
-  const channel = supabase.channel(`public:${table}:${filterString}`)
+  const channel = supabase.channel(`public:${table}:${Math.random().toString(36).substring(7)}`)
     .on('postgres_changes', { 
       event: '*', 
       schema: 'public', 
       table, 
-      filter: filterString || undefined 
+      filter: filterString
     }, fetchAndNotify)
     .subscribe();
 
