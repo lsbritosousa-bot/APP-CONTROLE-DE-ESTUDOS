@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { AuthProvider, useAuth } from './components/AuthProvider';
+import { Edit2 } from 'lucide-react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -369,6 +370,12 @@ const Dashboard = () => {
   const totalTopics = allTopics.length;
   const syllabusProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
+  const topSubject = subjects.length > 0 ? [...subjects].sort((a, b) => b.weight - a.weight)[0] : null;
+  const pendingReviews = allTopics
+    .filter(t => t.theoryProgress > 0 && t.lastStudied)
+    .sort((a, b) => new Date(a.lastStudied!).getTime() - new Date(b.lastStudied!).getTime())
+    .slice(0, 5);
+
   const updateGoal = async () => {
     if (!profile) return;
     await updateDoc(doc(db, 'users', profile.uid), {
@@ -393,6 +400,21 @@ const Dashboard = () => {
           <XPBar xp={profile?.xp || 0} level={profile?.level || 1} />
         </div>
       </header>
+
+      {topSubject && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+        >
+          <div>
+            <h2 className="text-sm font-bold text-primary uppercase tracking-widest mb-1 flex items-center gap-2">
+              <Target size={16} /> Missão do Dia (Maior Peso)
+            </h2>
+            <p className="text-2xl font-black">{topSubject.name}</p>
+            <p className="text-xs text-muted-foreground mt-1">Essa é a matéria de maior peso no seu ciclo atual (Peso {topSubject.weight}). Priorize o estudo dela hoje.</p>
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-card border border-border p-6 rounded-2xl shadow-sm space-y-2">
@@ -504,7 +526,7 @@ const Dashboard = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {subjects.map((s) => {
+                {[...subjects].sort((a, b) => b.weight - a.weight).map((s, index) => {
                   const subjectTopics = allTopics.filter(t => t.subjectId === s.id);
                   const completed = subjectTopics.filter(t => t.theoryProgress === 100).length;
                   const total = subjectTopics.length;
@@ -517,6 +539,7 @@ const Dashboard = () => {
                         <div>
                           <p className="font-semibold">{s.name}</p>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                            <span className="text-primary mr-1 bg-primary/10 px-1.5 rounded">Ordem {index + 1}</span>
                             <span>Peso {s.weight}</span>
                             <span>•</span>
                             <span>Dif {s.difficulty}</span>
@@ -549,10 +572,30 @@ const Dashboard = () => {
             </h2>
           </div>
           <div className="p-6">
-            <p className="text-muted-foreground text-sm">Próximas revisões baseadas na repetição espaçada.</p>
-            <div className="mt-4 text-center py-8 text-muted-foreground italic">
-              "A repetição é a mãe do aprendizado."
-            </div>
+            {pendingReviews.length === 0 ? (
+              <>
+                <p className="text-muted-foreground text-sm">Nenhuma revisão pendente detectada ainda.</p>
+                <div className="mt-4 text-center py-8 text-muted-foreground italic">
+                  "A repetição é a mãe do aprendizado."
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                {pendingReviews.map(t => {
+                  const sub = subjects.find(s => s.id === t.subjectId);
+                  return (
+                    <div key={t.id} className="p-3 bg-muted/50 rounded-xl border border-border/50 flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sub?.color || '#ccc' }} />
+                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">{sub?.name || 'Matéria'}</span>
+                      </div>
+                      <p className="font-semibold text-sm">{t.title}</p>
+                      <p className="text-xs text-muted-foreground">Último estudo: {format(parseISO(t.lastStudied!), 'dd/MM/yyyy')}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -566,6 +609,28 @@ const CycleManager = () => {
   const [newName, setNewName] = useState('');
   const [newWeight, setNewWeight] = useState(1);
   const [newDifficulty, setNewDifficulty] = useState(1);
+  
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editWeight, setEditWeight] = useState(1);
+  const [editDifficulty, setEditDifficulty] = useState(1);
+
+  const startEdit = (subject: Subject) => {
+    setEditingId(subject.id);
+    setEditName(subject.name);
+    setEditWeight(subject.weight);
+    setEditDifficulty(subject.difficulty);
+  };
+
+  const saveEdit = async () => {
+    if (!profile || !editingId) return;
+    await updateDoc(doc(db, 'users', profile.uid, 'subjects', editingId), {
+      name: editName,
+      weight: editWeight,
+      difficulty: editDifficulty
+    });
+    setEditingId(null);
+  };
 
   useEffect(() => {
     if (!profile) return;
@@ -649,32 +714,60 @@ const CycleManager = () => {
       </form>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {subjects.map((s) => (
+        {[...subjects].sort((a, b) => b.weight - a.weight).map((s, index) => (
           <motion.div 
             layout
             key={s.id} 
             className="bg-card border border-border p-6 rounded-2xl shadow-sm space-y-4 relative group"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: s.color }} />
-              <h3 className="text-lg font-bold">{s.name}</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-muted p-2 rounded-lg text-center">
-                <div className="text-muted-foreground text-xs uppercase font-bold">Peso</div>
-                <div className="text-lg font-bold">{s.weight}</div>
+            {editingId === s.id ? (
+              <div className="space-y-3">
+                <input 
+                  type="text" value={editName} onChange={e => setEditName(e.target.value)}
+                  className="w-full bg-muted border border-border rounded-lg px-3 py-1 font-bold outline-none" 
+                />
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <label className="text-xs font-bold text-muted-foreground">Peso (1-5)
+                    <input type="number" min="1" max="5" value={editWeight} onChange={e => setEditWeight(Number(e.target.value))} className="w-full bg-muted border border-border rounded-lg px-2 py-1 outline-none mt-1" />
+                  </label>
+                  <label className="text-xs font-bold text-muted-foreground">Dificuldade (1-5)
+                    <input type="number" min="1" max="5" value={editDifficulty} onChange={e => setEditDifficulty(Number(e.target.value))} className="w-full bg-muted border border-border rounded-lg px-2 py-1 outline-none mt-1" />
+                  </label>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => setEditingId(null)} className="flex-1 py-1.5 rounded-lg border border-border text-xs font-bold">Cancelar</button>
+                  <button onClick={saveEdit} className="flex-1 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold">Salvar</button>
+                </div>
               </div>
-              <div className="bg-muted p-2 rounded-lg text-center">
-                <div className="text-muted-foreground text-xs uppercase font-bold">Dificuldade</div>
-                <div className="text-lg font-bold">{s.difficulty}</div>
-              </div>
-            </div>
-            <button 
-              onClick={() => deleteSubject(s.id)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-            >
-              <Trash2 size={18} />
-            </button>
+            ) : (
+              <>
+                <div className="absolute top-4 right-12 text-primary font-black text-xl opacity-20">
+                  #{index + 1}
+                </div>
+                <div className="flex items-center gap-3 pr-8">
+                  <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                  <h3 className="text-lg font-bold leading-tight">{s.name}</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm relative z-10">
+                  <div className="bg-muted p-2 rounded-lg text-center">
+                    <div className="text-muted-foreground text-xs uppercase font-bold">Peso</div>
+                    <div className="text-lg font-bold">{s.weight}</div>
+                  </div>
+                  <div className="bg-muted p-2 rounded-lg text-center">
+                    <div className="text-muted-foreground text-xs uppercase font-bold">Dificuldade</div>
+                    <div className="text-lg font-bold">{s.difficulty}</div>
+                  </div>
+                </div>
+                <div className="absolute top-2 right-2 flex items-center gap-2 z-20 bg-background/80 backdrop-blur p-1.5 rounded-xl border border-border shadow-sm">
+                  <button onClick={() => startEdit(s)} className="text-muted-foreground hover:text-primary transition-colors p-1">
+                    <Edit2 size={16} />
+                  </button>
+                  <button onClick={() => deleteSubject(s.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </>
+            )}
           </motion.div>
         ))}
       </div>
