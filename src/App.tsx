@@ -836,8 +836,8 @@ const StudyTimer = () => {
 
     await addDoc(collection(db, 'users', profile.uid, 'sessions'), {
       userId: profile.uid,
-      subjectId: selectedSubject,
-      topicId: selectedTopic,
+      subjectId: selectedSubject || null,
+      topicId: selectedTopic || null,
       startTime: new Date().toISOString(),
       netTimeMinutes: netMinutes,
       questionsCount: 0,
@@ -867,8 +867,8 @@ const StudyTimer = () => {
 
     await addDoc(collection(db, 'users', profile.uid, 'sessions'), {
       userId: profile.uid,
-      subjectId: selectedSubject,
-      topicId: selectedTopic,
+      subjectId: selectedSubject || null,
+      topicId: selectedTopic || null,
       startTime: new Date().toISOString(),
       netTimeMinutes: 0,
       questionsCount: questions,
