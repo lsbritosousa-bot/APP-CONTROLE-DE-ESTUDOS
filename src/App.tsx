@@ -35,6 +35,7 @@ const SyllabusManager = () => {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [syllabusText, setSyllabusText] = useState('');
+  const [examBoard, setExamBoard] = useState('');
   const [isParsing, setIsParsing] = useState(false);
 
   useEffect(() => {
@@ -59,7 +60,7 @@ const SyllabusManager = () => {
     if (!profile || !syllabusText) return;
     setIsParsing(true);
     try {
-      const parsedData = await parseSyllabus(syllabusText);
+      const parsedData = await parseSyllabus(syllabusText, examBoard);
       
       for (const item of parsedData) {
         // Create subject
@@ -72,16 +73,28 @@ const SyllabusManager = () => {
         });
 
         // Create topics
-        for (const topicTitle of item.topics) {
+        const topicsList = Array.isArray(item.topics) ? item.topics : [];
+        for (const topicData of topicsList) {
+          let title = 'Tópico sem nome';
+          let relevance = 'média';
+
+          if (typeof topicData === 'string') {
+            title = topicData;
+          } else if (topicData && typeof topicData === 'object') {
+            title = topicData.title || topicData.name || topicData.nome || topicData.topico || 'Tópico sem nome';
+            relevance = topicData.relevance || topicData.relevancia || 'média';
+          }
+
           await addDoc(collection(db, 'users', profile.uid, 'subjects', subjectRef.id, 'topics'), {
             subjectId: subjectRef.id,
-            title: topicTitle,
+            title,
             theoryProgress: 0,
             questionsSolved: 0,
             correctAnswers: 0,
             studiedResumo: false,
             studiedQuestoes: false,
-            studiedFlashcards: false
+            studiedFlashcards: false,
+            relevance
           });
         }
       }
@@ -92,6 +105,27 @@ const SyllabusManager = () => {
       alert('Erro ao processar edital.');
     } finally {
       setIsParsing(false);
+    }
+  };
+
+  const handleClearSyllabus = async () => {
+    if (!profile) return;
+    if (!window.confirm('Tem certeza? Isso apagará TODAS as matérias e tópicos atuais.')) return;
+    
+    try {
+      const subjectsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'subjects')));
+      for (const subjectDoc of subjectsSnap.docs) {
+        const topicsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'subjects', subjectDoc.id, 'topics')));
+        for (const topicDoc of topicsSnap.docs) {
+          await deleteDoc(doc(db, 'users', profile.uid, 'subjects', subjectDoc.id, 'topics', topicDoc.id));
+        }
+        await deleteDoc(doc(db, 'users', profile.uid, 'subjects', subjectDoc.id));
+      }
+      setSelectedSubjectId(null);
+      alert('Edital limpo com sucesso!');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao limpar edital.');
     }
   };
 
@@ -131,10 +165,29 @@ const SyllabusManager = () => {
       </header>
 
       <section className="bg-card border border-border p-6 rounded-2xl shadow-sm space-y-4">
-        <h3 className="font-bold text-lg flex items-center gap-2">
-          <Brain size={20} className="text-primary" />
-          Importar Novo Edital
-        </h3>
+        <div className="flex justify-between items-center">
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            <Brain size={20} className="text-primary" />
+            Importar Novo Edital
+          </h3>
+          {subjects.length > 0 && (
+            <button 
+              onClick={handleClearSyllabus}
+              className="text-red-500 hover:text-red-600 text-sm font-bold flex items-center gap-1 transition-colors"
+            >
+              <Trash2 size={16} /> Limpar Edital Atual
+            </button>
+          )}
+        </div>
+
+        <input 
+          type="text"
+          value={examBoard}
+          onChange={(e) => setExamBoard(e.target.value)}
+          placeholder="Banca Examinadora (opcional, ex: CEBRASPE, VUNESP)"
+          className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+        />
+
         <textarea 
           value={syllabusText}
           onChange={(e) => setSyllabusText(e.target.value)}
@@ -178,7 +231,19 @@ const SyllabusManager = () => {
               {topics.map(t => (
                 <div key={t.id} className="bg-card border border-border p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-sm md:text-base">{t.title}</h4>
+                    <h4 className="font-semibold text-sm md:text-base flex items-center gap-2">
+                      {t.title}
+                      {t.relevance && (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          t.relevance.toLowerCase() === 'alta' ? "bg-red-500/10 text-red-500" :
+                          t.relevance.toLowerCase() === 'média' || t.relevance.toLowerCase() === 'media' ? "bg-yellow-500/10 text-yellow-500" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {t.relevance}
+                        </span>
+                      )}
+                    </h4>
                     <div className="mt-2 h-1.5 w-24 bg-muted rounded-full overflow-hidden">
                       <div className="h-full bg-primary" style={{ width: `${t.theoryProgress}%` }} />
                     </div>

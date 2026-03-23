@@ -27,6 +27,7 @@ export interface Topic {
   correctAnswers: number;
   lastStudied?: string;
   nextReview?: string;
+  relevance?: 'alta' | 'média' | 'baixa';
   studiedResumo: boolean;
   studiedQuestoes: boolean;
   studiedFlashcards: boolean;
