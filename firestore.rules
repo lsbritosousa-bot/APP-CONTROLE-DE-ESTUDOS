@@ -1,0 +1,148 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: /users/{userId}
+// Fields:
+//   - uid: string (required)
+//   - displayName: string (optional)
+//   - email: string (required)
+//   - xp: number (required)
+//   - level: number (required)
+//   - totalStudyTime: number (optional)
+//   - createdAt: timestamp (optional)
+//
+// Collection: /users/{userId}/subjects/{subjectId}
+// Fields:
+//   - name: string (required)
+//   - weight: number (required)
+//   - difficulty: number (required)
+//   - color: string (optional)
+//   - order: number (optional)
+//
+// Collection: /users/{userId}/subjects/{subjectId}/topics/{topicId}
+// Fields:
+//   - subjectId: string (required)
+//   - title: string (required)
+//   - theoryProgress: number (required)
+//   - questionsSolved: number (optional)
+//   - correctAnswers: number (optional)
+//   - lastStudied: timestamp (optional)
+//   - nextReview: timestamp (optional)
+//
+// Collection: /users/{userId}/sessions/{sessionId}
+// Fields:
+//   - userId: string (required)
+//   - subjectId: string (required)
+//   - topicId: string (optional)
+//   - startTime: timestamp (required)
+//   - endTime: timestamp (optional)
+//   - netTimeMinutes: number (required)
+//   - questionsCount: number (optional)
+//   - correctCount: number (optional)
+//   - xpEarned: number (optional)
+//
+// Collection: /users/{userId}/taf/{tafId}
+// Fields:
+//   - userId: string (required)
+//   - date: timestamp (required)
+//   - exerciseType: string (required, enum: ['corrida', 'barra', 'flexao', 'abdominal'])
+//   - performance: number (required)
+//   - unit: string (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'xp', 'level']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.xp is number &&
+             data.level is number;
+    }
+
+    function isValidSubject(data) {
+      return data.keys().hasAll(['name', 'weight', 'difficulty']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.weight is number && data.weight >= 1 &&
+             data.difficulty is number && data.difficulty >= 1;
+    }
+
+    function isValidTopic(data) {
+      return data.keys().hasAll(['subjectId', 'title', 'theoryProgress']) &&
+             data.subjectId is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.theoryProgress is number && data.theoryProgress >= 0 && data.theoryProgress <= 100 &&
+             (!('studiedResumo' in data) || data.studiedResumo is bool) &&
+             (!('studiedQuestoes' in data) || data.studiedQuestoes is bool) &&
+             (!('studiedFlashcards' in data) || data.studiedFlashcards is bool);
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['userId', 'subjectId', 'startTime', 'netTimeMinutes']) &&
+             data.userId == request.auth.uid &&
+             data.subjectId is string &&
+             data.netTimeMinutes is number && data.netTimeMinutes >= 0;
+    }
+
+    function isValidTAF(data) {
+      return data.keys().hasAll(['userId', 'date', 'exerciseType', 'performance']) &&
+             data.userId == request.auth.uid &&
+             data.exerciseType in ['corrida', 'barra', 'flexao', 'abdominal'] &&
+             data.performance is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+
+      match /subjects/{subjectId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSubject(request.resource.data);
+        allow update: if isOwner(userId) && isValidSubject(request.resource.data);
+        allow delete: if isOwner(userId);
+
+        match /topics/{topicId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) && isValidTopic(request.resource.data);
+          allow update: if isOwner(userId) && isValidTopic(request.resource.data);
+          allow delete: if isOwner(userId);
+        }
+      }
+
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSession(request.resource.data);
+        allow update: if isOwner(userId) && isValidSession(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /taf/{tafId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidTAF(request.resource.data);
+        allow update: if isOwner(userId) && isValidTAF(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

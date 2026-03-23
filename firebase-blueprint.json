@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User's study profile including XP, level, and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "xp": { "type": "number" },
+        "level": { "type": "number" },
+        "totalStudyTime": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "xp", "level"]
+    },
+    "Subject": {
+      "title": "Study Subject",
+      "description": "A subject in the study cycle (e.g., Direito Penal).",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "weight": { "type": "number" },
+        "difficulty": { "type": "number" },
+        "color": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "weight", "difficulty"]
+    },
+    "Topic": {
+      "title": "Syllabus Topic",
+      "description": "A specific topic within a subject.",
+      "type": "object",
+      "properties": {
+        "subjectId": { "type": "string" },
+        "title": { "type": "string" },
+        "theoryProgress": { "type": "number" },
+        "questionsSolved": { "type": "number" },
+        "correctAnswers": { "type": "number" },
+        "lastStudied": { "type": "string", "format": "date-time" },
+        "nextReview": { "type": "string", "format": "date-time" },
+        "studiedResumo": { "type": "boolean" },
+        "studiedQuestoes": { "type": "boolean" },
+        "studiedFlashcards": { "type": "boolean" }
+      },
+      "required": ["subjectId", "title", "theoryProgress"]
+    },
+    "StudySession": {
+      "title": "Study Session",
+      "description": "A record of a single study session.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "topicId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "netTimeMinutes": { "type": "number" },
+        "questionsCount": { "type": "number" },
+        "correctCount": { "type": "number" },
+        "xpEarned": { "type": "number" }
+      },
+      "required": ["userId", "subjectId", "startTime", "netTimeMinutes"]
+    },
+    "TAFSession": {
+      "title": "TAF Session",
+      "description": "Physical training record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "exerciseType": { "type": "string", "enum": ["corrida", "barra", "flexao", "abdominal"] },
+        "performance": { "type": "number" },
+        "unit": { "type": "string" }
+      },
+      "required": ["userId", "date", "exerciseType", "performance"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "/users/{userId}/subjects/{subjectId}": {
+      "schema": "Subject",
+      "description": "Subjects configured for the user's cycle."
+    },
+    "/users/{userId}/subjects/{subjectId}/topics/{topicId}": {
+      "schema": "Topic",
+      "description": "Verticalized syllabus topics for a subject."
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "StudySession",
+      "description": "History of study sessions."
+    },
+    "/users/{userId}/taf/{tafId}": {
+      "schema": "TAFSession",
+      "description": "History of physical training."
+    }
+  }
+}
