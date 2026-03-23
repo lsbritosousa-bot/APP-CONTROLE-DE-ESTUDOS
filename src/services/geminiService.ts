@@ -3,7 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export const parseSyllabus = async (text: string, examBoard?: string) => {
-  const model = "gemini-3-flash-preview";
+  const model = "gemini-1.5-flash";
   
     const prompt = `
       Você é um Arquiteto de Estudos especializado em concursos policiais.

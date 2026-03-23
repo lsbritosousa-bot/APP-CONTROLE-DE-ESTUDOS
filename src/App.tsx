@@ -101,9 +101,9 @@ const SyllabusManager = () => {
       }
       setSyllabusText('');
       alert('Edital verticalizado com sucesso!');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Erro ao processar edital.');
+      alert('Erro ao processar edital: ' + (error?.message || error));
     } finally {
       setIsParsing(false);
     }
