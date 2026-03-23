@@ -4,7 +4,7 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY
 const ai = new GoogleGenAI({ apiKey });
 
 export const parseSyllabus = async (text: string, examBoard?: string) => {
-  const model = "gemini-1.5-flash";
+  const model = "gemini-2.5-flash";
   
     const prompt = `
       Você é um Arquiteto de Estudos especializado em concursos policiais.
