@@ -142,12 +142,13 @@ const SyllabusManager = () => {
     const currentQuestoes = field === 'studiedQuestoes' ? newValue : topic.studiedQuestoes;
     const currentFlashcards = field === 'studiedFlashcards' ? newValue : topic.studiedFlashcards;
     
-    if (currentResumo && currentQuestoes && currentFlashcards) {
-      updateData.theoryProgress = 100;
-    } else if (currentResumo || currentQuestoes || currentFlashcards) {
-      updateData.theoryProgress = 50;
-    } else {
-      updateData.theoryProgress = 0;
+    // Calculate progress granularly: each method is ~33%
+    const count = [currentResumo, currentQuestoes, currentFlashcards].filter(Boolean).length;
+    updateData.theoryProgress = Math.round((count / 3) * 100);
+
+    // Set lastStudied when marking anything as studied
+    if (newValue) {
+      updateData.lastStudied = new Date().toISOString();
     }
 
     await updateDoc(topicRef, updateData);
@@ -335,16 +336,32 @@ const Dashboard = () => {
   useEffect(() => {
     if (!profile) return;
     const q = query(collection(db, 'users', profile.uid, 'subjects'), orderBy('order'));
-    return onSnapshot(q, async (snapshot) => {
+    return onSnapshot(q, (snapshot) => {
       const subs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subject));
       setSubjects(subs);
-      
-      const topicsPromises = subs.map(s => getDocs(collection(db, 'users', profile.uid, 'subjects', s.id, 'topics')));
-      const topicsSnapshots = await Promise.all(topicsPromises);
-      const topics = topicsSnapshots.flatMap(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic)));
-      setAllTopics(topics);
     });
   }, [profile]);
+
+  // Subscribe to topics for each subject in real-time so Edital changes propagate
+  useEffect(() => {
+    if (!profile || subjects.length === 0) return;
+    
+    const unsubscribes: (() => void)[] = [];
+    const topicsBySubject: Record<string, Topic[]> = {};
+
+    subjects.forEach(s => {
+      const q = query(collection(db, 'users', profile.uid, 'subjects', s.id, 'topics'));
+      const unsub = onSnapshot(q, (snapshot) => {
+        topicsBySubject[s.id] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+        // Merge all topics from all subjects
+        const merged = Object.values(topicsBySubject).flat();
+        setAllTopics(merged);
+      });
+      unsubscribes.push(unsub);
+    });
+
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [profile, subjects]);
 
   useEffect(() => {
     if (!profile) return;
@@ -366,9 +383,8 @@ const Dashboard = () => {
   const dailyGoal = profile?.dailyGoalMinutes || 240;
   const dailyProgress = Math.min(100, Math.round((todayMinutes / dailyGoal) * 100));
 
-  const completedTopics = allTopics.filter(t => t.theoryProgress === 100).length;
   const totalTopics = allTopics.length;
-  const syllabusProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+  const syllabusProgress = totalTopics > 0 ? Math.round(allTopics.reduce((acc, t) => acc + (t.theoryProgress || 0), 0) / totalTopics) : 0;
 
   const topSubject = subjects.length > 0 ? [...subjects].sort((a, b) => b.weight - a.weight)[0] : null;
   const pendingReviews = allTopics
@@ -528,9 +544,8 @@ const Dashboard = () => {
               <div className="space-y-4">
                 {[...subjects].sort((a, b) => b.weight - a.weight).map((s, index) => {
                   const subjectTopics = allTopics.filter(t => t.subjectId === s.id);
-                  const completed = subjectTopics.filter(t => t.theoryProgress === 100).length;
                   const total = subjectTopics.length;
-                  const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+                  const progress = total > 0 ? Math.round(subjectTopics.reduce((acc, t) => acc + (t.theoryProgress || 0), 0) / total) : 0;
 
                   return (
                     <div key={s.id} className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border/50">
@@ -1169,6 +1184,245 @@ const TAFTracker = () => {
   );
 };
 
+const SettingsPage = () => {
+  const { profile } = useAuth();
+  const [isResetting, setIsResetting] = useState<string | null>(null);
+
+  const resetSessions = async () => {
+    if (!profile) return;
+    if (!window.confirm('Tem certeza que deseja zerar TODAS as sessões de estudo? Isso afetará Meta Diária, Questões e Aproveitamento.')) return;
+    setIsResetting('sessions');
+    try {
+      const sessionsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'sessions')));
+      for (const sessionDoc of sessionsSnap.docs) {
+        await deleteDoc(doc(db, 'users', profile.uid, 'sessions', sessionDoc.id));
+      }
+      // Reset totalStudyTime on user profile
+      await updateDoc(doc(db, 'users', profile.uid), {
+        totalStudyTime: 0
+      });
+      alert('Sessões de estudo zeradas com sucesso!');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao zerar sessões.');
+    } finally {
+      setIsResetting(null);
+    }
+  };
+
+  const resetTAF = async () => {
+    if (!profile) return;
+    if (!window.confirm('Tem certeza que deseja zerar TODOS os registros do TAF?')) return;
+    setIsResetting('taf');
+    try {
+      const tafSnap = await getDocs(query(collection(db, 'users', profile.uid, 'taf')));
+      for (const tafDoc of tafSnap.docs) {
+        await deleteDoc(doc(db, 'users', profile.uid, 'taf', tafDoc.id));
+      }
+      alert('Registros de TAF zerados com sucesso!');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao zerar TAF.');
+    } finally {
+      setIsResetting(null);
+    }
+  };
+
+  const resetXP = async () => {
+    if (!profile) return;
+    if (!window.confirm('Tem certeza que deseja zerar XP e Nível?')) return;
+    setIsResetting('xp');
+    try {
+      await updateDoc(doc(db, 'users', profile.uid), {
+        xp: 0,
+        level: 1
+      });
+      alert('XP e Nível zerados com sucesso!');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao zerar XP.');
+    } finally {
+      setIsResetting(null);
+    }
+  };
+
+  const resetEditalProgress = async () => {
+    if (!profile) return;
+    if (!window.confirm('Tem certeza que deseja zerar o PROGRESSO de todos os tópicos do edital? (As matérias e tópicos serão mantidos, mas Resumo/Questões/Flashcards serão desmarcados)')) return;
+    setIsResetting('edital');
+    try {
+      const subjectsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'subjects')));
+      for (const subjectDoc of subjectsSnap.docs) {
+        const topicsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'subjects', subjectDoc.id, 'topics')));
+        for (const topicDoc of topicsSnap.docs) {
+          await updateDoc(doc(db, 'users', profile.uid, 'subjects', subjectDoc.id, 'topics', topicDoc.id), {
+            theoryProgress: 0,
+            questionsSolved: 0,
+            correctAnswers: 0,
+            studiedResumo: false,
+            studiedQuestoes: false,
+            studiedFlashcards: false
+          });
+        }
+      }
+      alert('Progresso do edital zerado com sucesso!');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao zerar progresso.');
+    } finally {
+      setIsResetting(null);
+    }
+  };
+
+  const resetAll = async () => {
+    if (!profile) return;
+    if (!window.confirm('⚠️ ATENÇÃO: Isso vai APAGAR TUDO — sessões, TAF, edital, XP. Deseja continuar?')) return;
+    if (!window.confirm('ÚLTIMA CONFIRMAÇÃO: Realmente deseja apagar TODOS os dados? Essa ação é irreversível!')) return;
+    setIsResetting('all');
+    try {
+      // Delete sessions
+      const sessionsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'sessions')));
+      for (const sessionDoc of sessionsSnap.docs) {
+        await deleteDoc(doc(db, 'users', profile.uid, 'sessions', sessionDoc.id));
+      }
+      // Delete TAF
+      const tafSnap = await getDocs(query(collection(db, 'users', profile.uid, 'taf')));
+      for (const tafDoc of tafSnap.docs) {
+        await deleteDoc(doc(db, 'users', profile.uid, 'taf', tafDoc.id));
+      }
+      // Delete edital (subjects + topics)
+      const subjectsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'subjects')));
+      for (const subjectDoc of subjectsSnap.docs) {
+        const topicsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'subjects', subjectDoc.id, 'topics')));
+        for (const topicDoc of topicsSnap.docs) {
+          await deleteDoc(doc(db, 'users', profile.uid, 'subjects', subjectDoc.id, 'topics', topicDoc.id));
+        }
+        await deleteDoc(doc(db, 'users', profile.uid, 'subjects', subjectDoc.id));
+      }
+      // Reset user profile
+      await updateDoc(doc(db, 'users', profile.uid), {
+        xp: 0,
+        level: 1,
+        totalStudyTime: 0
+      });
+      alert('Todos os dados foram zerados com sucesso!');
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao zerar dados.');
+    } finally {
+      setIsResetting(null);
+    }
+  };
+
+  const resetOptions = [
+    {
+      id: 'sessions',
+      title: 'Zerar Sessões de Estudo',
+      description: 'Remove todas as sessões registradas. Isso zera: Meta Diária, Questões resolvidas e Aproveitamento.',
+      icon: Timer,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+      borderColor: 'border-blue-500/20',
+      action: resetSessions
+    },
+    {
+      id: 'edital',
+      title: 'Zerar Progresso do Edital',
+      description: 'Desmarca todos os Resumos, Questões e Flashcards dos tópicos. Mantém as matérias e tópicos.',
+      icon: Brain,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-500/10',
+      borderColor: 'border-purple-500/20',
+      action: resetEditalProgress
+    },
+    {
+      id: 'taf',
+      title: 'Zerar Registros de TAF',
+      description: 'Remove todo o histórico de treinos físicos registrados.',
+      icon: Dumbbell,
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+      borderColor: 'border-green-500/20',
+      action: resetTAF
+    },
+    {
+      id: 'xp',
+      title: 'Zerar XP e Nível',
+      description: 'Reseta XP para 0 e nível para 1.',
+      icon: Trophy,
+      color: 'text-yellow-500',
+      bgColor: 'bg-yellow-500/10',
+      borderColor: 'border-yellow-500/20',
+      action: resetXP
+    }
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-8"
+    >
+      <header>
+        <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
+        <p className="text-muted-foreground">Gerencie seus dados e resete registros quando necessário.</p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {resetOptions.map(opt => (
+          <motion.div
+            key={opt.id}
+            whileHover={{ scale: 1.01 }}
+            className={`bg-card border ${opt.borderColor} p-6 rounded-2xl shadow-sm space-y-4`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-3 ${opt.bgColor} ${opt.color} rounded-xl`}>
+                <opt.icon size={24} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{opt.title}</h3>
+                <p className="text-xs text-muted-foreground">{opt.description}</p>
+              </div>
+            </div>
+            <button
+              onClick={opt.action}
+              disabled={isResetting !== null}
+              className={`w-full py-3 rounded-xl font-bold text-sm border ${opt.borderColor} ${opt.color} ${opt.bgColor} hover:opacity-80 transition-all disabled:opacity-40`}
+            >
+              {isResetting === opt.id ? 'Zerando...' : 'Zerar'}
+            </button>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="pt-4 border-t border-border">
+        <motion.div
+          whileHover={{ scale: 1.005 }}
+          className="bg-card border border-red-500/30 p-6 rounded-2xl shadow-sm space-y-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-red-500/10 text-red-500 rounded-xl">
+              <AlertCircle size={24} />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-red-500">Zerar TUDO</h3>
+              <p className="text-xs text-muted-foreground">Remove TODOS os dados: sessões, edital completo (matérias e tópicos), TAF, XP e nível. Ação irreversível.</p>
+            </div>
+          </div>
+          <button
+            onClick={resetAll}
+            disabled={isResetting !== null}
+            className="w-full py-3 rounded-xl font-bold text-sm border border-red-500/30 text-red-500 bg-red-500/10 hover:bg-red-500/20 transition-all disabled:opacity-40"
+          >
+            {isResetting === 'all' ? 'Zerando tudo...' : '⚠️ Zerar Todos os Dados'}
+          </button>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+};
+
 // --- Main App ---
 
 const MainApp = () => {
@@ -1280,6 +1534,7 @@ const MainApp = () => {
           <SidebarItem icon={Brain} label="Edital" active={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} />
           <SidebarItem icon={Timer} label="Estudar" active={activeTab === 'study'} onClick={() => setActiveTab('study')} />
           <SidebarItem icon={Dumbbell} label="TAF" active={activeTab === 'taf'} onClick={() => setActiveTab('taf')} />
+          <SidebarItem icon={Settings} label="Configurações" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </nav>
 
         <div className="pt-6 border-t border-border space-y-4">
@@ -1309,6 +1564,7 @@ const MainApp = () => {
           {activeTab === 'syllabus' && <SyllabusManager key="syllabus" />}
           {activeTab === 'study' && <StudyTimer key="study" />}
           {activeTab === 'taf' && <TAFTracker key="taf" />}
+          {activeTab === 'settings' && <SettingsPage key="settings" />}
         </AnimatePresence>
       </main>
     </div>
