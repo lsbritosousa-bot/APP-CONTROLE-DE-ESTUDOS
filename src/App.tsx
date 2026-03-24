@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { AuthProvider, useAuth } from './components/AuthProvider';
-import { Edit2 } from 'lucide-react';
+import { Edit2, Clock, PenLine } from 'lucide-react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -802,6 +802,9 @@ const StudyTimer = () => {
   const [correct, setCorrect] = useState(0);
   const [aiTip, setAiTip] = useState('');
   const [isLoadingTip, setIsLoadingLoadingTip] = useState(false);
+  const [timeInputMode, setTimeInputMode] = useState<'timer' | 'manual'>('timer');
+  const [manualHours, setManualHours] = useState(0);
+  const [manualMinutes, setManualMinutes] = useState(0);
 
   useEffect(() => {
     if (!profile) return;
@@ -875,6 +878,39 @@ const StudyTimer = () => {
     alert('Sessão de tempo salva!');
   };
 
+  const saveManualSession = async () => {
+    if (!profile || !selectedSubject) return;
+    const netMinutes = (manualHours * 60) + manualMinutes;
+    if (netMinutes <= 0) return;
+
+    const xpEarned = netMinutes * 10;
+
+    await addDoc(collection(db, 'users', profile.uid, 'sessions'), {
+      userId: profile.uid,
+      subjectId: selectedSubject || null,
+      topicId: selectedTopic || null,
+      startTime: new Date().toISOString(),
+      netTimeMinutes: netMinutes,
+      questionsCount: 0,
+      correctCount: 0,
+      xpEarned,
+      type: 'manual'
+    });
+
+    await updateDoc(doc(db, 'users', profile.uid), {
+      xp: increment(xpEarned),
+      totalStudyTime: increment(netMinutes)
+    });
+
+    if (profile.xp + xpEarned >= profile.level * 1000) {
+      await updateDoc(doc(db, 'users', profile.uid), { level: increment(1) });
+    }
+
+    setManualHours(0);
+    setManualMinutes(0);
+    alert('Sessão manual salva!');
+  };
+
   const saveQuestionsSession = async () => {
     if (!profile || !selectedSubject || questions <= 0) return;
     
@@ -923,7 +959,7 @@ const StudyTimer = () => {
       
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-2.5-flash",
         contents: `Dê uma dica rápida e matadora de estudo para o assunto "${topic || 'Geral'}" da matéria "${subject}". Foco em concursos policiais. Seja breve (máximo 3 frases).`
       });
       setAiTip(response.text || '');
@@ -1008,40 +1044,117 @@ const StudyTimer = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Timer Section */}
+        {/* Timer / Manual Section */}
         <div className="bg-card border border-border p-8 rounded-3xl shadow-xl space-y-8 flex flex-col items-center justify-center">
-          <div className="text-center space-y-2">
-            <div className="text-6xl font-mono font-bold tracking-tighter tabular-nums">
-              {formatTime(time)}
-            </div>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Cronômetro de Estudo</p>
+          {/* Seletor entre Cronômetro e Manual */}
+          <div className="flex w-full bg-[#2a2a2a] rounded-2xl p-1 gap-1 border border-white/5">
+            <button
+              onClick={() => setTimeInputMode('timer')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${
+                timeInputMode === 'timer'
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <Clock size={18} /> Cronômetro
+            </button>
+            <button
+              onClick={() => { setTimeInputMode('manual'); if (isActive) setIsActive(false); }}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all ${
+                timeInputMode === 'manual'
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <PenLine size={18} /> Manual
+            </button>
           </div>
 
-          <div className="flex gap-4 w-full">
-            {!isActive ? (
+          {timeInputMode === 'timer' ? (
+            <>
+              <div className="text-center space-y-3 py-4">
+                <div className="text-6xl font-mono font-bold tracking-tighter tabular-nums text-white">
+                  {formatTime(time)}
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="w-12 h-1 bg-blue-600/30 rounded-full mb-2" />
+                  <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Tempo Decorrido</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 w-full">
+                {!isActive ? (
+                  <button 
+                    onClick={() => setIsActive(true)}
+                    className="flex-1 bg-primary text-primary-foreground font-bold py-4 rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Timer size={24} /> Iniciar
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      onClick={() => setIsActive(false)}
+                      className="flex-1 bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95 transition-all"
+                    >
+                      Pausar
+                    </button>
+                    <button 
+                      onClick={saveTimeSession}
+                      className="flex-1 bg-green-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-600/20 hover:scale-[1.02] active:scale-95 transition-all"
+                    >
+                      Salvar
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center space-y-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Adicionar Tempo Manual</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 w-full">
+                <div className="space-y-2 text-center">
+                  <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">Horas</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    max="24"
+                    value={manualHours}
+                    onChange={(e) => setManualHours(Math.max(0, Number(e.target.value)))}
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded-2xl px-4 py-6 text-center text-4xl font-mono font-bold text-white outline-none focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
+                <div className="space-y-2 text-center">
+                  <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em]">Minutos</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    max="59"
+                    value={manualMinutes}
+                    onChange={(e) => setManualMinutes(Math.min(59, Math.max(0, Number(e.target.value))))}
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded-2xl px-4 py-6 text-center text-4xl font-mono font-bold text-white outline-none focus:border-blue-500/50 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-sm font-medium text-zinc-400">
+                  Tempo Resultante: <span className="font-bold text-blue-500">{manualHours}h {manualMinutes}min</span>
+                </p>
+                <span className="w-8 h-1 bg-zinc-800 rounded-full" />
+              </div>
+
               <button 
-                onClick={() => setIsActive(true)}
-                className="flex-1 bg-primary text-primary-foreground font-bold py-4 rounded-2xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                onClick={saveManualSession}
+                disabled={(manualHours * 60 + manualMinutes) <= 0}
+                className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-5 rounded-2xl shadow-lg shadow-green-900/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-30 disabled:grayscale flex items-center justify-center gap-3 text-lg"
               >
-                <Timer size={24} /> Iniciar
+                <CheckCircle2 size={22} /> Salvar Sessão Manual
               </button>
-            ) : (
-              <>
-                <button 
-                  onClick={() => setIsActive(false)}
-                  className="flex-1 bg-orange-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-orange-500/20 hover:scale-[1.02] active:scale-95 transition-all"
-                >
-                  Pausar
-                </button>
-                <button 
-                  onClick={saveTimeSession}
-                  className="flex-1 bg-green-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-600/20 hover:scale-[1.02] active:scale-95 transition-all"
-                >
-                  Salvar
-                </button>
-              </>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {/* Questions Section */}
