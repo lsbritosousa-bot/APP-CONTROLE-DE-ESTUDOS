@@ -51,7 +51,7 @@ const SyllabusManager = () => {
 
   useEffect(() => {
     if (!profile || !selectedSubjectId) return;
-    const q = query(collection(db, 'users', profile.uid, 'subjects', selectedSubjectId, 'topics'));
+    const q = query(collection(db, 'users', profile.uid, 'subjects', selectedSubjectId, 'topics'), orderBy('order'));
     return onSnapshot(q, (snapshot) => {
       setTopics(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic)));
     });
@@ -63,6 +63,7 @@ const SyllabusManager = () => {
     try {
       const parsedData = await parseSyllabus(syllabusText, examBoard);
       
+      let subjectOrder = subjects.length;
       for (const item of parsedData) {
         // Create subject
         const subjectRef = await addDoc(collection(db, 'users', profile.uid, 'subjects'), {
@@ -70,11 +71,12 @@ const SyllabusManager = () => {
           weight: 1,
           difficulty: 1,
           color: '#3b82f6',
-          order: subjects.length
+          order: subjectOrder++
         });
 
         // Create topics
         const topicsList = Array.isArray(item.topics) ? item.topics : [];
+        let topicOrder = 0;
         for (const topicData of topicsList) {
           let title = 'Tópico sem nome';
           let relevance = 'média';
@@ -95,7 +97,8 @@ const SyllabusManager = () => {
             studiedResumo: false,
             studiedQuestoes: false,
             studiedFlashcards: false,
-            relevance
+            relevance,
+            order: topicOrder++
           });
         }
       }
@@ -350,7 +353,7 @@ const Dashboard = () => {
     const topicsBySubject: Record<string, Topic[]> = {};
 
     subjects.forEach(s => {
-      const q = query(collection(db, 'users', profile.uid, 'subjects', s.id, 'topics'));
+      const q = query(collection(db, 'users', profile.uid, 'subjects', s.id, 'topics'), orderBy('order'));
       const unsub = onSnapshot(q, (snapshot) => {
         topicsBySubject[s.id] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
         // Merge all topics from all subjects

@@ -31,6 +31,7 @@ export interface Topic {
   studiedResumo: boolean;
   studiedQuestoes: boolean;
   studiedFlashcards: boolean;
+  order: number;
 }
 
 export interface StudySession {
