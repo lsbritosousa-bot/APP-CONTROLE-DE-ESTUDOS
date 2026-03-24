@@ -41,9 +41,11 @@ const SyllabusManager = () => {
 
   useEffect(() => {
     if (!profile) return;
-    const q = query(collection(db, 'users', profile.uid, 'subjects'), orderBy('order'));
+    const q = query(collection(db, 'users', profile.uid, 'subjects'));
     return onSnapshot(q, (snapshot) => {
-      const subs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subject));
+      const subs = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Subject))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setSubjects(subs);
       if (subs.length > 0 && !selectedSubjectId) setSelectedSubjectId(subs[0].id);
     });
@@ -51,9 +53,12 @@ const SyllabusManager = () => {
 
   useEffect(() => {
     if (!profile || !selectedSubjectId) return;
-    const q = query(collection(db, 'users', profile.uid, 'subjects', selectedSubjectId, 'topics'), orderBy('order'));
+    const q = query(collection(db, 'users', profile.uid, 'subjects', selectedSubjectId, 'topics'));
     return onSnapshot(q, (snapshot) => {
-      setTopics(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic)));
+      const sortedTopics = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Topic))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      setTopics(sortedTopics);
     });
   }, [profile, selectedSubjectId]);
 
@@ -338,9 +343,11 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!profile) return;
-    const q = query(collection(db, 'users', profile.uid, 'subjects'), orderBy('order'));
+    const q = query(collection(db, 'users', profile.uid, 'subjects'));
     return onSnapshot(q, (snapshot) => {
-      const subs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subject));
+      const subs = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Subject))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       setSubjects(subs);
     });
   }, [profile]);
@@ -353,9 +360,11 @@ const Dashboard = () => {
     const topicsBySubject: Record<string, Topic[]> = {};
 
     subjects.forEach(s => {
-      const q = query(collection(db, 'users', profile.uid, 'subjects', s.id, 'topics'), orderBy('order'));
+      const q = query(collection(db, 'users', profile.uid, 'subjects', s.id, 'topics'));
       const unsub = onSnapshot(q, (snapshot) => {
-        topicsBySubject[s.id] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Topic));
+        topicsBySubject[s.id] = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() } as Topic))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         // Merge all topics from all subjects
         const merged = Object.values(topicsBySubject).flat();
         setAllTopics(merged);
@@ -652,9 +661,12 @@ const CycleManager = () => {
 
   useEffect(() => {
     if (!profile) return;
-    const q = query(collection(db, 'users', profile.uid, 'subjects'), orderBy('order'));
+    const q = query(collection(db, 'users', profile.uid, 'subjects'));
     return onSnapshot(q, (snapshot) => {
-      setSubjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subject)));
+      const subs = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Subject))
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      setSubjects(subs);
     });
   }, [profile]);
 
