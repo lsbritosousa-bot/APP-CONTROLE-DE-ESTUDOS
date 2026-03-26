@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { AuthProvider, useAuth } from './components/AuthProvider';
-import { Edit2, Clock, PenLine } from 'lucide-react';
+import { Edit2, Clock, PenLine, ChevronDown, History } from 'lucide-react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -340,6 +340,7 @@ const Dashboard = () => {
   const [allTopics, setAllTopics] = useState<Topic[]>([]);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [newGoal, setNewGoal] = useState(profile?.dailyGoalMinutes || 240);
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!profile) return;
@@ -398,11 +399,34 @@ const Dashboard = () => {
   const totalTopics = allTopics.length;
   const syllabusProgress = totalTopics > 0 ? Math.round(allTopics.reduce((acc, t) => acc + (t.theoryProgress || 0), 0) / totalTopics) : 0;
 
-  const topSubject = subjects.length > 0 ? [...subjects].sort((a, b) => b.weight - a.weight)[0] : null;
+  // Missão do Dia dinâmica: avança para a próxima disciplina não estudada hoje
+  const sortedByWeight = [...subjects].sort((a, b) => b.weight - a.weight);
+  const todayStudiedSubjectIds = new Set(
+    sessions
+      .filter(s => s.startTime.startsWith(today))
+      .map(s => s.subjectId)
+  );
+  const nextSubject = sortedByWeight.find(s => !todayStudiedSubjectIds.has(s.id)) || null;
+  const allStudiedToday = subjects.length > 0 && sortedByWeight.every(s => todayStudiedSubjectIds.has(s.id));
+
   const pendingReviews = allTopics
     .filter(t => t.theoryProgress > 0 && t.lastStudied)
     .sort((a, b) => new Date(a.lastStudied!).getTime() - new Date(b.lastStudied!).getTime())
     .slice(0, 5);
+
+  // Tópicos com questões resolvidas para o Histórico
+  const topicsWithQuestions = allTopics
+    .filter(t => t.questionsSolved > 0)
+    .sort((a, b) => (b.questionsSolved || 0) - (a.questionsSolved || 0));
+
+  const toggleExpandSubject = (id: string) => {
+    setExpandedSubjects(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const updateGoal = async () => {
     if (!profile) return;
@@ -429,20 +453,54 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {topSubject && (
+      {/* Card Total de Horas Estudadas */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-red-500/10 border border-yellow-500/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+      >
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-yellow-500/10 text-yellow-500 rounded-xl">
+            <Trophy size={28} />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-yellow-500 uppercase tracking-widest mb-1">Total de Horas Estudadas para o Concurso</h2>
+            <p className="text-4xl font-black">{hours}h {minutes}m</p>
+            <p className="text-xs text-muted-foreground mt-1">Soma de todas as suas sessões de estudo registradas.</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Missão do Dia Dinâmica */}
+      {allStudiedToday ? (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-green-500/10 to-transparent border border-green-500/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+        >
+          <div>
+            <h2 className="text-sm font-bold text-green-500 uppercase tracking-widest mb-1 flex items-center gap-2">
+              <CheckCircle2 size={16} /> Missão do Dia — Completa!
+            </h2>
+            <p className="text-2xl font-black">Parabéns, Recruta! 🎉</p>
+            <p className="text-xs text-muted-foreground mt-1">Você já estudou todas as disciplinas do ciclo hoje. Descanse ou revise!</p>
+          </div>
+        </motion.div>
+      ) : nextSubject ? (
         <motion.div 
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
         >
           <div>
             <h2 className="text-sm font-bold text-primary uppercase tracking-widest mb-1 flex items-center gap-2">
-              <Target size={16} /> Missão do Dia (Maior Peso)
+              <Target size={16} /> Missão do Dia
             </h2>
-            <p className="text-2xl font-black">{topSubject.name}</p>
-            <p className="text-xs text-muted-foreground mt-1">Essa é a matéria de maior peso no seu ciclo atual (Peso {topSubject.weight}). Priorize o estudo dela hoje.</p>
+            <p className="text-2xl font-black">{nextSubject.name}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Próxima disciplina a estudar (Peso {nextSubject.weight}). 
+              {todayStudiedSubjectIds.size > 0 && ` Você já estudou ${todayStudiedSubjectIds.size} de ${subjects.length} disciplinas hoje.`}
+            </p>
           </div>
         </motion.div>
-      )}
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-card border border-border p-6 rounded-2xl shadow-sm space-y-2">
@@ -553,36 +611,90 @@ const Dashboard = () => {
                 <p>Nenhuma matéria configurada no ciclo.</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {[...subjects].sort((a, b) => b.weight - a.weight).map((s, index) => {
                   const subjectTopics = allTopics.filter(t => t.subjectId === s.id);
                   const total = subjectTopics.length;
                   const progress = total > 0 ? Math.round(subjectTopics.reduce((acc, t) => acc + (t.theoryProgress || 0), 0) / total) : 0;
+                  const studiedTopics = subjectTopics.filter(t => t.theoryProgress > 0);
+                  const isExpanded = expandedSubjects.has(s.id);
 
                   return (
-                    <div key={s.id} className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-border/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                        <div>
-                          <p className="font-semibold">{s.name}</p>
-                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
-                            <span className="text-primary mr-1 bg-primary/10 px-1.5 rounded">Ordem {index + 1}</span>
-                            <span>Peso {s.weight}</span>
-                            <span>•</span>
-                            <span>Dif {s.difficulty}</span>
+                    <div key={s.id} className="rounded-xl bg-muted/50 border border-border/50 overflow-hidden">
+                      <button
+                        onClick={() => toggleExpandSubject(s.id)}
+                        className="w-full flex items-center justify-between p-4 hover:bg-muted/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                          <div className="text-left">
+                            <p className="font-semibold">{s.name}</p>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                              <span className="text-primary mr-1 bg-primary/10 px-1.5 rounded">Ordem {index + 1}</span>
+                              <span>Peso {s.weight}</span>
+                              <span>•</span>
+                              <span>Dif {s.difficulty}</span>
+                              {studiedTopics.length > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span className="text-green-500">{studiedTopics.length}/{total} tópicos</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="text-right space-y-1">
-                        <div className="text-xs font-bold">{progress}%</div>
-                        <div className="w-16 h-1 bg-muted rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${progress}%` }}
-                            className="h-full bg-primary"
-                          />
+                        <div className="flex items-center gap-3">
+                          <div className="text-right space-y-1">
+                            <div className="text-xs font-bold">{progress}%</div>
+                            <div className="w-16 h-1 bg-muted rounded-full overflow-hidden">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${progress}%` }}
+                                className="h-full bg-primary"
+                              />
+                            </div>
+                          </div>
+                          <motion.div
+                            animate={{ rotate: isExpanded ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <ChevronDown size={16} className="text-muted-foreground" />
+                          </motion.div>
                         </div>
-                      </div>
+                      </button>
+                      <AnimatePresence>
+                        {isExpanded && studiedTopics.length > 0 && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 pb-4 pt-1 space-y-2 border-t border-border/30">
+                              {studiedTopics.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(t => (
+                                <div key={t.id} className="flex items-center gap-2 py-1.5 px-3 rounded-lg bg-background/50 text-sm">
+                                  <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" />
+                                  <span className="flex-1 truncate">{t.title}</span>
+                                  <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{t.theoryProgress}%</span>
+                                </div>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                        {isExpanded && studiedTopics.length === 0 && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 pb-4 pt-1 border-t border-border/30">
+                              <p className="text-xs text-muted-foreground italic py-2">Nenhum tópico estudado ainda nesta disciplina.</p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   );
                 })}
@@ -626,6 +738,63 @@ const Dashboard = () => {
           </div>
         </section>
       </div>
+
+      {/* Histórico de Questões por Tópico */}
+      <section className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <History size={22} className="text-primary" />
+            Histórico de Questões por Tópico
+          </h2>
+        </div>
+        <div className="p-6">
+          {topicsWithQuestions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <CheckCircle2 size={48} className="mx-auto mb-4 opacity-20" />
+              <p className="text-sm">Nenhuma questão resolvida ainda. Registre suas questões na aba Estudar.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topicsWithQuestions.map(t => {
+                const sub = subjects.find(s => s.id === t.subjectId);
+                const erros = (t.questionsSolved || 0) - (t.correctAnswers || 0);
+                const aproveitamento = t.questionsSolved > 0 ? Math.round((t.correctAnswers / t.questionsSolved) * 100) : 0;
+                return (
+                  <div key={t.id} className="p-4 bg-muted/50 rounded-xl border border-border/50">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sub?.color || '#ccc' }} />
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{sub?.name || 'Matéria'}</span>
+                        </div>
+                        <p className="font-semibold text-sm truncate">{t.title}</p>
+                      </div>
+                      <div className="flex items-center gap-4 text-center flex-shrink-0">
+                        <div>
+                          <div className="text-lg font-bold">{t.questionsSolved}</div>
+                          <div className="text-[9px] font-bold uppercase text-muted-foreground">Questões</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-green-500">{t.correctAnswers}</div>
+                          <div className="text-[9px] font-bold uppercase text-muted-foreground">Acertos</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-red-500">{erros}</div>
+                          <div className="text-[9px] font-bold uppercase text-muted-foreground">Erros</div>
+                        </div>
+                        <div>
+                          <div className={`text-lg font-bold ${aproveitamento >= 70 ? 'text-green-500' : aproveitamento >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>{aproveitamento}%</div>
+                          <div className="text-[9px] font-bold uppercase text-muted-foreground">Aprov.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
     </motion.div>
   );
 };
