@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { AuthProvider, useAuth } from './components/AuthProvider';
-import { Edit2, Clock, PenLine, ChevronDown, History } from 'lucide-react';
+import { Edit2, Clock, PenLine, ChevronDown, History, Calendar, ClipboardList, ChevronLeft, Eye, EyeOff, RotateCcw, X } from 'lucide-react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -24,7 +24,7 @@ import { cn } from './lib/utils';
 import { db } from './firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc, increment, getDocs } from './lib/firestoreSupabase';
 import { Subject, Topic, StudySession, TAFSession, ExerciseType } from './types';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isToday, isSameDay } from 'date-fns';
 
 import { parseSyllabus } from './services/geminiService';
 
@@ -1720,6 +1720,1212 @@ const SettingsPage = () => {
   );
 };
 
+// --- Aba Rotina ---
+
+const ROUTINE_CATEGORIES = [
+  { value: 'estudo', label: 'Estudo', color: '#3b82f6', emoji: '📘' },
+  { value: 'treino', label: 'Treino', color: '#f97316', emoji: '🏋️' },
+  { value: 'descanso', label: 'Descanso', color: '#22c55e', emoji: '😴' },
+  { value: 'alimentacao', label: 'Alimentação', color: '#eab308', emoji: '🍽️' },
+  { value: 'lazer', label: 'Lazer', color: '#a855f7', emoji: '🎮' },
+  { value: 'outro', label: 'Outro', color: '#6b7280', emoji: '📌' },
+];
+
+interface RoutineEvent {
+  id: string;
+  userId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  category: string;
+  title: string;
+  description?: string;
+  color: string;
+}
+
+interface TemplateBlock {
+  id: string;
+  title: string;
+  category: string;
+  startTime: string;
+  endTime: string;
+}
+
+const RoutinePlanner = () => {
+  const { profile } = useAuth();
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [events, setEvents] = useState<RoutineEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<RoutineEvent | null>(null);
+
+  // Form
+  const [formTitle, setFormTitle] = useState('');
+  const [formCategory, setFormCategory] = useState('estudo');
+  const [formStartTime, setFormStartTime] = useState('08:00');
+  const [formEndTime, setFormEndTime] = useState('10:00');
+  const [formDescription, setFormDescription] = useState('');
+
+  // Rotina mensal em massa
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const [templateBlocks, setTemplateBlocks] = useState<TemplateBlock[]>([
+    { id: '1', title: 'Estudo', category: 'estudo', startTime: '08:00', endTime: '12:00' },
+    { id: '2', title: 'Treino', category: 'treino', startTime: '14:00', endTime: '15:00' },
+    { id: '3', title: 'Estudo', category: 'estudo', startTime: '15:30', endTime: '18:00' },
+  ]);
+
+  const addTemplateBlock = () => {
+    setTemplateBlocks(prev => [...prev, {
+      id: Date.now().toString(),
+      title: '',
+      category: 'estudo',
+      startTime: '08:00',
+      endTime: '10:00',
+    }]);
+  };
+
+  const removeTemplateBlock = (id: string) => {
+    setTemplateBlocks(prev => prev.filter(b => b.id !== id));
+  };
+
+  const updateTemplateBlock = (id: string, field: keyof TemplateBlock, value: string) => {
+    setTemplateBlocks(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
+  const applyBulkRoutine = async () => {
+    if (!profile || templateBlocks.length === 0) return;
+    const validBlocks = templateBlocks.filter(b => b.title.trim());
+    if (validBlocks.length === 0) { alert('Adicione pelo menos um bloco com t\u00EDtulo.'); return; }
+
+    setIsBulkSaving(true);
+    try {
+      const mStart = startOfMonth(currentMonth);
+      const mEnd = endOfMonth(currentMonth);
+      const days = eachDayOfInterval({ start: mStart, end: mEnd });
+
+      for (const day of days) {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        for (const block of validBlocks) {
+          const cat = ROUTINE_CATEGORIES.find(c => c.value === block.category);
+          await addDoc(collection(db, 'users', profile.uid, 'routine_events'), {
+            userId: profile.uid,
+            date: dateStr,
+            startTime: block.startTime,
+            endTime: block.endTime,
+            category: block.category,
+            title: block.title,
+            description: '',
+            color: cat?.color || '#6b7280',
+          });
+        }
+      }
+      setShowBulkModal(false);
+      alert(`Rotina aplicada com sucesso a ${days.length} dias do m\u00EAs!`);
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao aplicar rotina mensal.');
+    } finally {
+      setIsBulkSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!profile) return;
+    const q = query(collection(db, 'users', profile.uid, 'routine_events'));
+    return onSnapshot(q, (snapshot: any) => {
+      setEvents(snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() } as RoutineEvent)));
+    });
+  }, [profile]);
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const startDayOfWeek = getDay(monthStart); // 0=Sun
+
+  const openAddModal = (date: Date) => {
+    setSelectedDate(date);
+    setEditingEvent(null);
+    setFormTitle('');
+    setFormCategory('estudo');
+    setFormStartTime('08:00');
+    setFormEndTime('10:00');
+    setFormDescription('');
+    setShowModal(true);
+  };
+
+  const openEditModal = (event: RoutineEvent) => {
+    setEditingEvent(event);
+    setSelectedDate(new Date(event.date + 'T12:00:00'));
+    setFormTitle(event.title);
+    setFormCategory(event.category);
+    setFormStartTime(event.startTime);
+    setFormEndTime(event.endTime);
+    setFormDescription(event.description || '');
+    setShowModal(true);
+  };
+
+  const saveEvent = async () => {
+    if (!profile || !selectedDate || !formTitle) return;
+    const cat = ROUTINE_CATEGORIES.find(c => c.value === formCategory);
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+    if (editingEvent) {
+      await updateDoc(doc(db, 'users', profile.uid, 'routine_events', editingEvent.id), {
+        title: formTitle,
+        category: formCategory,
+        startTime: formStartTime,
+        endTime: formEndTime,
+        description: formDescription,
+        color: cat?.color || '#6b7280',
+        date: dateStr,
+      });
+    } else {
+      await addDoc(collection(db, 'users', profile.uid, 'routine_events'), {
+        userId: profile.uid,
+        date: dateStr,
+        startTime: formStartTime,
+        endTime: formEndTime,
+        category: formCategory,
+        title: formTitle,
+        description: formDescription,
+        color: cat?.color || '#6b7280',
+      });
+    }
+    setShowModal(false);
+  };
+
+  const deleteEvent = async (eventId: string) => {
+    if (!profile) return;
+    if (!window.confirm('Excluir este evento?')) return;
+    await deleteDoc(doc(db, 'users', profile.uid, 'routine_events', eventId));
+  };
+
+  const eventsForDay = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return events
+      .filter(e => e.date === dateStr)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  };
+
+  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  const selectedDayEvents = selectedDate ? eventsForDay(selectedDate) : [];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-8"
+    >
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Rotina de Estudos</h1>
+          <p className="text-muted-foreground">Organize seu dia, semana e mês até a prova. Disciplina é liberdade.</p>
+        </div>
+        <button
+          onClick={() => setShowBulkModal(true)}
+          className="bg-primary text-primary-foreground font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 self-start"
+        >
+          <Calendar size={20} /> Definir Rotina do Mês
+        </button>
+      </header>
+
+      {/* Navegação do Mês */}
+      <div className="flex items-center justify-between bg-card border border-border rounded-2xl p-4 shadow-sm">
+        <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 rounded-xl hover:bg-muted transition-colors">
+          <ChevronLeft size={20} />
+        </button>
+        <h2 className="text-xl font-bold capitalize">
+          {format(currentMonth, 'MMMM yyyy')}
+        </h2>
+        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-2 rounded-xl hover:bg-muted transition-colors">
+          <ChevronRight size={20} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Calendário */}
+        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-4 shadow-sm">
+          {/* Header dias da semana */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {weekDays.map(d => (
+              <div key={d} className="text-center text-xs font-bold text-muted-foreground uppercase tracking-widest py-2">{d}</div>
+            ))}
+          </div>
+          {/* Grid de dias */}
+          <div className="grid grid-cols-7 gap-1">
+            {/* Espaços vazios antes do primeiro dia */}
+            {Array.from({ length: startDayOfWeek }).map((_, i) => (
+              <div key={`empty-${i}`} className="aspect-square" />
+            ))}
+            {daysInMonth.map(day => {
+              const dayEvents = eventsForDay(day);
+              const isSelected = selectedDate && isSameDay(day, selectedDate);
+              const today = isToday(day);
+              return (
+                <button
+                  key={day.toISOString()}
+                  onClick={() => setSelectedDate(day)}
+                  className={cn(
+                    "aspect-square rounded-xl p-1 flex flex-col items-center transition-all relative overflow-hidden border",
+                    isSelected
+                      ? "bg-primary/10 border-primary/40 ring-2 ring-primary/20"
+                      : "border-transparent hover:bg-muted/60",
+                    today && !isSelected && "bg-primary/5 border-primary/10"
+                  )}
+                >
+                  <span className={cn(
+                    "text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full",
+                    today && "bg-primary text-primary-foreground",
+                    isSelected && !today && "text-primary"
+                  )}>
+                    {format(day, 'd')}
+                  </span>
+                  {/* Mini barras de eventos */}
+                  <div className="flex flex-wrap gap-[2px] mt-auto justify-center">
+                    {dayEvents.slice(0, 4).map(ev => (
+                      <div
+                        key={ev.id}
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: ev.color }}
+                      />
+                    ))}
+                    {dayEvents.length > 4 && (
+                      <span className="text-[8px] text-muted-foreground">+{dayEvents.length - 4}</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Painel lateral: eventos do dia selecionado */}
+        <div className="space-y-4">
+          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-lg">
+                {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Selecione um dia'}
+              </h3>
+              {selectedDate && (
+                <button
+                  onClick={() => openAddModal(selectedDate)}
+                  className="bg-primary text-primary-foreground p-2 rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  <Plus size={18} />
+                </button>
+              )}
+            </div>
+
+            {selectedDate && selectedDayEvents.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar size={32} className="mx-auto mb-3 opacity-20" />
+                <p className="text-sm">Nenhum evento neste dia.</p>
+                <button
+                  onClick={() => openAddModal(selectedDate)}
+                  className="text-primary text-sm font-bold mt-2 hover:underline"
+                >
+                  + Adicionar bloco
+                </button>
+              </div>
+            )}
+
+            {selectedDayEvents.map(ev => {
+              const cat = ROUTINE_CATEGORIES.find(c => c.value === ev.category);
+              return (
+                <motion.div
+                  key={ev.id}
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="p-3 rounded-xl border border-border/50 bg-muted/30 space-y-1 group relative"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-full min-h-[28px] rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">{cat?.emoji}</span>
+                        <span className="font-bold text-sm truncate">{ev.title}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {ev.startTime} — {ev.endTime}
+                        <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-[10px] font-bold uppercase">{cat?.label}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => openEditModal(ev)} className="p-1 text-muted-foreground hover:text-primary transition-colors">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => deleteEvent(ev.id)} className="p-1 text-muted-foreground hover:text-red-500 transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  {ev.description && (
+                    <p className="text-xs text-muted-foreground pl-4">{ev.description}</p>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Legenda */}
+          <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Categorias</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {ROUTINE_CATEGORIES.map(cat => (
+                <div key={cat.value} className="flex items-center gap-2 text-sm">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span>{cat.emoji} {cat.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Criar/Editar Evento */}
+      <AnimatePresence>
+        {showModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-card border border-border p-8 rounded-3xl shadow-2xl max-w-md w-full space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold">{editingEvent ? 'Editar Evento' : 'Novo Evento'}</h3>
+                <button onClick={() => setShowModal(false)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Título</label>
+                  <input
+                    type="text"
+                    value={formTitle}
+                    onChange={e => setFormTitle(e.target.value)}
+                    placeholder="Ex: Direito Penal - Questões"
+                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Categoria</label>
+                  <select
+                    value={formCategory}
+                    onChange={e => setFormCategory(e.target.value)}
+                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none"
+                  >
+                    {ROUTINE_CATEGORIES.map(cat => (
+                      <option key={cat.value} value={cat.value}>{cat.emoji} {cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Início</label>
+                    <input
+                      type="time"
+                      value={formStartTime}
+                      onChange={e => setFormStartTime(e.target.value)}
+                      className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Término</label>
+                    <input
+                      type="time"
+                      value={formEndTime}
+                      onChange={e => setFormEndTime(e.target.value)}
+                      className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Descrição (opcional)</label>
+                  <textarea
+                    value={formDescription}
+                    onChange={e => setFormDescription(e.target.value)}
+                    placeholder="Notas adicionais..."
+                    className="w-full h-20 bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl border border-border font-bold hover:bg-muted transition-colors">Cancelar</button>
+                <button onClick={saveEvent} disabled={!formTitle} className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-opacity disabled:opacity-50">
+                  {editingEvent ? 'Salvar' : 'Adicionar'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Rotina Mensal em Massa */}
+      <AnimatePresence>
+        {showBulkModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-card border border-border p-8 rounded-3xl shadow-2xl max-w-2xl w-full space-y-5 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Definir Rotina do Mês</h3>
+                  <p className="text-sm text-muted-foreground">Monte seu template diário e aplique a todos os dias de <strong>{format(currentMonth, 'MMMM yyyy')}</strong></p>
+                </div>
+                <button onClick={() => setShowBulkModal(false)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4">
+                <p className="text-xs text-primary font-bold uppercase tracking-widest mb-1">ℹ️ Como funciona</p>
+                <p className="text-sm text-muted-foreground">Defina os blocos de horário abaixo. Ao clicar em "Aplicar", esses blocos serão criados como eventos em <strong>cada dia</strong> do mês selecionado ({format(currentMonth, 'MMMM yyyy')}).</p>
+              </div>
+
+              {/* Template Blocks */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Blocos de Horário</h4>
+                  <button
+                    onClick={addTemplateBlock}
+                    className="text-primary text-sm font-bold flex items-center gap-1 hover:underline"
+                  >
+                    <Plus size={16} /> Adicionar Bloco
+                  </button>
+                </div>
+
+                {templateBlocks.map((block, index) => {
+                  const cat = ROUTINE_CATEGORIES.find(c => c.value === block.category);
+                  return (
+                    <motion.div
+                      key={block.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-muted/50 border border-border/50 rounded-xl p-4 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat?.color || '#6b7280' }} />
+                          <span className="text-xs font-bold text-muted-foreground uppercase">Bloco {index + 1}</span>
+                        </div>
+                        <button
+                          onClick={() => removeTemplateBlock(block.id)}
+                          className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Título</label>
+                          <input
+                            type="text"
+                            value={block.title}
+                            onChange={e => updateTemplateBlock(block.id, 'title', e.target.value)}
+                            placeholder="Ex: Estudo"
+                            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-primary/20"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Categoria</label>
+                          <select
+                            value={block.category}
+                            onChange={e => updateTemplateBlock(block.id, 'category', e.target.value)}
+                            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none"
+                          >
+                            {ROUTINE_CATEGORIES.map(c => (
+                              <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Início</label>
+                          <input
+                            type="time"
+                            value={block.startTime}
+                            onChange={e => updateTemplateBlock(block.id, 'startTime', e.target.value)}
+                            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-primary/20"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Término</label>
+                          <input
+                            type="time"
+                            value={block.endTime}
+                            onChange={e => updateTemplateBlock(block.id, 'endTime', e.target.value)}
+                            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-primary/20"
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+
+                {templateBlocks.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">Nenhum bloco definido. Clique em "Adicionar Bloco" para começar.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Preview */}
+              {templateBlocks.filter(b => b.title.trim()).length > 0 && (
+                <div className="bg-muted/30 border border-border/50 rounded-xl p-4">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">Preview do Dia</p>
+                  <div className="space-y-1">
+                    {templateBlocks.filter(b => b.title.trim()).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(block => {
+                      const cat = ROUTINE_CATEGORIES.find(c => c.value === block.category);
+                      return (
+                        <div key={block.id} className="flex items-center gap-2 text-sm">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat?.color || '#6b7280' }} />
+                          <span className="text-muted-foreground font-mono text-xs">{block.startTime}-{block.endTime}</span>
+                          <span className="font-medium">{cat?.emoji} {block.title}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowBulkModal(false)} className="flex-1 py-3 rounded-xl border border-border font-bold hover:bg-muted transition-colors">Cancelar</button>
+                <button
+                  onClick={applyBulkRoutine}
+                  disabled={isBulkSaving || templateBlocks.filter(b => b.title.trim()).length === 0}
+                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isBulkSaving ? 'Aplicando...' : `Aplicar a ${eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) }).length} dias`}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// --- Aba Caderno de Erros ---
+
+interface ErrorCard {
+  id: string;
+  userId: string;
+  subjectName: string;
+  topic: string;
+  question: string;
+  answer: string;
+  difficulty: number;
+  intervalDays: number;
+  nextReview: string;
+  totalReviews: number;
+  correctReviews: number;
+  createdAt: string;
+}
+
+interface ErrorCardReview {
+  id: string;
+  cardId: string;
+  reviewedAt: string;
+  result: string;
+  previousInterval: number;
+  newInterval: number;
+}
+
+const ErrorNotebook = () => {
+  const { profile } = useAuth();
+  const [cards, setCards] = useState<ErrorCard[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingCard, setEditingCard] = useState<ErrorCard | null>(null);
+  const [reviewMode, setReviewMode] = useState(false);
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [selectedCardHistory, setSelectedCardHistory] = useState<string | null>(null);
+  const [reviewHistory, setReviewHistory] = useState<ErrorCardReview[]>([]);
+  const [filterSubject, setFilterSubject] = useState('all');
+
+  // Form
+  const [formSubject, setFormSubject] = useState('');
+  const [formTopic, setFormTopic] = useState('');
+  const [formQuestion, setFormQuestion] = useState('');
+  const [formAnswer, setFormAnswer] = useState('');
+
+  useEffect(() => {
+    if (!profile) return;
+    const q = query(collection(db, 'users', profile.uid, 'error_cards'));
+    return onSnapshot(q, (snapshot: any) => {
+      setCards(snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() } as ErrorCard)));
+    });
+  }, [profile]);
+
+  // Carregar histórico quando um card é selecionado
+  useEffect(() => {
+    if (!profile || !selectedCardHistory) return;
+    const q = query(collection(db, 'users', profile.uid, 'error_cards', selectedCardHistory, 'error_card_reviews'));
+    return onSnapshot(q, (snapshot: any) => {
+      const reviews = snapshot.docs
+        .map((d: any) => ({ id: d.id, ...d.data() } as ErrorCardReview))
+        .sort((a: ErrorCardReview, b: ErrorCardReview) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime());
+      setReviewHistory(reviews);
+    });
+  }, [profile, selectedCardHistory]);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const pendingCards = cards.filter(c => {
+    if (!c.nextReview) return true;
+    return c.nextReview <= today;
+  });
+
+  const uniqueSubjects = [...new Set(cards.map(c => c.subjectName))].sort();
+
+  const filteredCards = filterSubject === 'all' ? cards : cards.filter(c => c.subjectName === filterSubject);
+
+  const groupedBySubject = filteredCards.reduce((acc, card) => {
+    if (!acc[card.subjectName]) acc[card.subjectName] = [];
+    acc[card.subjectName].push(card);
+    return acc;
+  }, {} as Record<string, ErrorCard[]>);
+
+  const openCreateModal = () => {
+    setEditingCard(null);
+    setFormSubject('');
+    setFormTopic('');
+    setFormQuestion('');
+    setFormAnswer('');
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (card: ErrorCard) => {
+    setEditingCard(card);
+    setFormSubject(card.subjectName);
+    setFormTopic(card.topic);
+    setFormQuestion(card.question);
+    setFormAnswer(card.answer);
+    setShowCreateModal(true);
+  };
+
+  const saveCard = async () => {
+    if (!profile || !formSubject || !formQuestion || !formAnswer) return;
+
+    if (editingCard) {
+      await updateDoc(doc(db, 'users', profile.uid, 'error_cards', editingCard.id), {
+        subjectName: formSubject,
+        topic: formTopic,
+        question: formQuestion,
+        answer: formAnswer,
+      });
+    } else {
+      await addDoc(collection(db, 'users', profile.uid, 'error_cards'), {
+        userId: profile.uid,
+        subjectName: formSubject,
+        topic: formTopic,
+        question: formQuestion,
+        answer: formAnswer,
+        difficulty: 2,
+        intervalDays: 1,
+        nextReview: today,
+        totalReviews: 0,
+        correctReviews: 0,
+      });
+    }
+    setShowCreateModal(false);
+  };
+
+  const deleteCard = async (cardId: string) => {
+    if (!profile) return;
+    if (!window.confirm('Excluir este cartão?')) return;
+    // Deletar reviews primeiro
+    const reviewsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'error_cards', cardId, 'error_card_reviews')));
+    for (const reviewDoc of reviewsSnap.docs) {
+      await deleteDoc(doc(db, 'users', profile.uid, 'error_cards', cardId, 'error_card_reviews', reviewDoc.id));
+    }
+    await deleteDoc(doc(db, 'users', profile.uid, 'error_cards', cardId));
+  };
+
+  const startReview = () => {
+    if (pendingCards.length === 0) return;
+    setReviewMode(true);
+    setCurrentReviewIndex(0);
+    setShowAnswer(false);
+  };
+
+  const submitReview = async (result: 'forgot' | 'hard' | 'good' | 'easy') => {
+    if (!profile) return;
+    const card = pendingCards[currentReviewIndex];
+    if (!card) return;
+
+    const prevInterval = card.intervalDays || 1;
+    let newInterval = 1;
+
+    switch (result) {
+      case 'forgot': newInterval = 1; break;
+      case 'hard': newInterval = Math.max(1, Math.round(prevInterval * 1.2)); break;
+      case 'good': newInterval = Math.round(prevInterval * 2); break;
+      case 'easy': newInterval = Math.round(prevInterval * 3); break;
+    }
+
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + newInterval);
+    const nextReviewStr = nextDate.toISOString().split('T')[0];
+
+    const isCorrect = result === 'good' || result === 'easy';
+
+    // Atualizar o card
+    await updateDoc(doc(db, 'users', profile.uid, 'error_cards', card.id), {
+      intervalDays: newInterval,
+      nextReview: nextReviewStr,
+      difficulty: result === 'forgot' ? 3 : result === 'hard' ? 2 : 1,
+      totalReviews: increment(1),
+      correctReviews: isCorrect ? increment(1) : increment(0),
+    });
+
+    // Salvar no histórico
+    await addDoc(collection(db, 'users', profile.uid, 'error_cards', card.id, 'error_card_reviews'), {
+      userId: profile.uid,
+      cardId: card.id,
+      reviewedAt: new Date().toISOString(),
+      result,
+      previousInterval: prevInterval,
+      newInterval,
+    });
+
+    // Avançar para próximo card
+    if (currentReviewIndex < pendingCards.length - 1) {
+      setCurrentReviewIndex(currentReviewIndex + 1);
+      setShowAnswer(false);
+    } else {
+      setReviewMode(false);
+      alert('🎉 Revisão concluída! Todos os cartões pendentes foram revisados.');
+    }
+  };
+
+  // Modo Revisão
+  if (reviewMode && pendingCards.length > 0) {
+    const card = pendingCards[currentReviewIndex];
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        className="space-y-8"
+      >
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Modo Revisão</h1>
+            <p className="text-muted-foreground">Cartão {currentReviewIndex + 1} de {pendingCards.length}</p>
+          </div>
+          <button
+            onClick={() => setReviewMode(false)}
+            className="px-4 py-2 rounded-xl border border-border font-bold hover:bg-muted transition-colors flex items-center gap-2"
+          >
+            <X size={16} /> Sair
+          </button>
+        </header>
+
+        {/* Barra de progresso */}
+        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${((currentReviewIndex + 1) / pendingCards.length) * 100}%` }}
+            className="h-full bg-primary"
+          />
+        </div>
+
+        {/* Card */}
+        <div className="max-w-2xl mx-auto">
+          <motion.div
+            key={card.id + '-' + currentReviewIndex}
+            initial={{ opacity: 0, rotateY: -10 }}
+            animate={{ opacity: 1, rotateY: 0 }}
+            className="bg-card border border-border rounded-3xl shadow-xl overflow-hidden"
+          >
+            {/* Badge */}
+            <div className="px-6 pt-5 flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold">{card.subjectName}</span>
+              {card.topic && <span className="px-3 py-1 rounded-full bg-muted text-muted-foreground text-xs font-bold">{card.topic}</span>}
+            </div>
+
+            {/* Pergunta */}
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Pergunta</p>
+                <p className="text-xl font-semibold leading-relaxed">{card.question}</p>
+              </div>
+
+              {/* Resposta */}
+              {!showAnswer ? (
+                <button
+                  onClick={() => setShowAnswer(true)}
+                  className="w-full py-4 rounded-2xl border-2 border-dashed border-primary/30 text-primary font-bold hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
+                >
+                  <Eye size={20} /> Mostrar Resposta
+                </button>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-4"
+                >
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-2xl p-5">
+                    <p className="text-xs font-bold text-green-500 uppercase tracking-widest mb-2">Resposta</p>
+                    <p className="text-lg leading-relaxed">{card.answer}</p>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground text-center">Como foi o seu recall?</p>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      onClick={() => submitReview('forgot')}
+                      className="py-3 rounded-xl bg-red-500/10 text-red-500 font-bold text-sm hover:bg-red-500/20 transition-all border border-red-500/20"
+                    >
+                      😵 Esqueci
+                    </button>
+                    <button
+                      onClick={() => submitReview('hard')}
+                      className="py-3 rounded-xl bg-orange-500/10 text-orange-500 font-bold text-sm hover:bg-orange-500/20 transition-all border border-orange-500/20"
+                    >
+                      😤 Difícil
+                    </button>
+                    <button
+                      onClick={() => submitReview('good')}
+                      className="py-3 rounded-xl bg-blue-500/10 text-blue-500 font-bold text-sm hover:bg-blue-500/20 transition-all border border-blue-500/20"
+                    >
+                      😊 Bom
+                    </button>
+                    <button
+                      onClick={() => submitReview('easy')}
+                      className="py-3 rounded-xl bg-green-500/10 text-green-500 font-bold text-sm hover:bg-green-500/20 transition-all border border-green-500/20"
+                    >
+                      🤩 Fácil
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-8"
+    >
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Caderno de Erros</h1>
+          <p className="text-muted-foreground">Transforme seus erros em acertos com repetição espaçada.</p>
+        </div>
+        <button
+          onClick={openCreateModal}
+          className="bg-primary text-primary-foreground font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 self-start"
+        >
+          <Plus size={20} /> Novo Cartão
+        </button>
+      </header>
+
+      {/* Banner de revisão pendente */}
+      {pendingCards.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-orange-500/10 via-red-500/10 to-pink-500/10 border border-orange-500/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-orange-500/10 text-orange-500 rounded-xl">
+              <RotateCcw size={28} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-orange-500 uppercase tracking-widest mb-1">Revisão Pendente</h2>
+              <p className="text-2xl font-black">{pendingCards.length} {pendingCards.length === 1 ? 'cartão' : 'cartões'} para revisar hoje</p>
+              <p className="text-xs text-muted-foreground mt-1">A repetição espaçada é a técnica mais eficiente para retenção de longo prazo.</p>
+            </div>
+          </div>
+          <button
+            onClick={startReview}
+            className="bg-primary text-primary-foreground font-bold px-8 py-4 rounded-2xl hover:opacity-90 transition-opacity text-lg shadow-lg shadow-primary/20 flex-shrink-0"
+          >
+            Iniciar Revisão
+          </button>
+        </motion.div>
+      )}
+
+      {/* Filtro por disciplina */}
+      {uniqueSubjects.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Filtrar:</span>
+          <button
+            onClick={() => setFilterSubject('all')}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+              filterSubject === 'all' ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-transparent"
+            )}
+          >
+            Todos ({cards.length})
+          </button>
+          {uniqueSubjects.map(sub => (
+            <button
+              key={sub}
+              onClick={() => setFilterSubject(sub)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                filterSubject === sub ? "bg-primary/10 text-primary border-primary/20" : "bg-muted text-muted-foreground border-transparent"
+              )}
+            >
+              {sub} ({cards.filter(c => c.subjectName === sub).length})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Cards agrupados */}
+      {Object.keys(groupedBySubject).length === 0 ? (
+        <div className="text-center py-16 bg-muted/30 rounded-2xl border border-dashed border-border">
+          <ClipboardList size={56} className="mx-auto mb-4 opacity-20" />
+          <p className="text-muted-foreground text-lg font-semibold">Nenhum cartão de erro ainda.</p>
+          <p className="text-sm text-muted-foreground mt-1">Crie seu primeiro cartão para começar a memorizar com eficiência.</p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {(Object.entries(groupedBySubject) as [string, ErrorCard[]][]).map(([subjectName, subjectCards]) => (
+            <section key={subjectName} className="space-y-3">
+              <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <ClipboardList size={14} />
+                {subjectName}
+                <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-full text-[10px]">{subjectCards.length}</span>
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {subjectCards.map(card => {
+                  const isPending = !card.nextReview || card.nextReview <= today;
+                  const aproveitamento = card.totalReviews > 0 ? Math.round((card.correctReviews / card.totalReviews) * 100) : 0;
+                  return (
+                    <motion.div
+                      key={card.id}
+                      layout
+                      className={cn(
+                        "bg-card border p-5 rounded-2xl shadow-sm space-y-3 group relative",
+                        isPending ? "border-orange-500/30" : "border-border"
+                      )}
+                    >
+                      {isPending && (
+                        <div className="absolute top-3 right-3">
+                          <span className="w-2.5 h-2.5 bg-orange-500 rounded-full block animate-pulse" />
+                        </div>
+                      )}
+                      <div>
+                        {card.topic && (
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{card.topic}</span>
+                        )}
+                        <p className="font-semibold text-sm mt-1 line-clamp-2">{card.question}</p>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-full font-bold",
+                          card.difficulty === 1 ? "bg-green-500/10 text-green-500" :
+                          card.difficulty === 3 ? "bg-red-500/10 text-red-500" :
+                          "bg-yellow-500/10 text-yellow-500"
+                        )}>
+                          {card.difficulty === 1 ? 'Fácil' : card.difficulty === 3 ? 'Difícil' : 'Médio'}
+                        </span>
+                        <span>{card.totalReviews || 0} revisões</span>
+                        {card.totalReviews > 0 && (
+                          <span className={aproveitamento >= 70 ? 'text-green-500' : aproveitamento >= 50 ? 'text-yellow-500' : 'text-red-500'}>
+                            {aproveitamento}%
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock size={12} />
+                        {isPending ? (
+                          <span className="text-orange-500 font-bold">Revisão pendente</span>
+                        ) : (
+                          <span>Próx: {card.nextReview}</span>
+                        )}
+                      </div>
+
+                      {/* Ações */}
+                      <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+                        <button
+                          onClick={() => { setSelectedCardHistory(selectedCardHistory === card.id ? null : card.id); }}
+                          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
+                        >
+                          <History size={12} /> Histórico
+                        </button>
+                        <button
+                          onClick={() => openEditModal(card)}
+                          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
+                        >
+                          <Edit2 size={12} /> Editar
+                        </button>
+                        <button
+                          onClick={() => deleteCard(card.id)}
+                          className="text-xs text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
+                        >
+                          <Trash2 size={12} /> Excluir
+                        </button>
+                      </div>
+
+                      {/* Histórico inline */}
+                      <AnimatePresence>
+                        {selectedCardHistory === card.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pt-2 border-t border-border/30 space-y-2">
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Histórico de Revisões</p>
+                              {reviewHistory.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic">Nenhuma revisão ainda.</p>
+                              ) : (
+                                reviewHistory.slice(0, 5).map(rev => (
+                                  <div key={rev.id} className="flex items-center justify-between text-xs py-1">
+                                    <span className="text-muted-foreground">
+                                      {rev.reviewedAt ? format(new Date(rev.reviewedAt), 'dd/MM/yy HH:mm') : '—'}
+                                    </span>
+                                    <span className={cn(
+                                      "px-2 py-0.5 rounded-full font-bold",
+                                      rev.result === 'easy' ? "bg-green-500/10 text-green-500" :
+                                      rev.result === 'good' ? "bg-blue-500/10 text-blue-500" :
+                                      rev.result === 'hard' ? "bg-orange-500/10 text-orange-500" :
+                                      "bg-red-500/10 text-red-500"
+                                    )}>
+                                      {rev.result === 'easy' ? '🤩 Fácil' : rev.result === 'good' ? '😊 Bom' : rev.result === 'hard' ? '😤 Difícil' : '😵 Esqueci'}
+                                    </span>
+                                    <span className="text-muted-foreground">{rev.previousInterval}d → {rev.newInterval}d</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {/* Modal Criar/Editar Card */}
+      <AnimatePresence>
+        {showCreateModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-card border border-border p-8 rounded-3xl shadow-2xl max-w-lg w-full space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold">{editingCard ? 'Editar Cartão' : 'Novo Cartão de Erro'}</h3>
+                <button onClick={() => setShowCreateModal(false)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Disciplina</label>
+                    <input
+                      type="text"
+                      value={formSubject}
+                      onChange={e => setFormSubject(e.target.value)}
+                      placeholder="Ex: Direito Penal"
+                      list="subject-suggestions"
+                      className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+                    />
+                    <datalist id="subject-suggestions">
+                      {uniqueSubjects.map(s => <option key={s} value={s} />)}
+                    </datalist>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Tópico</label>
+                    <input
+                      type="text"
+                      value={formTopic}
+                      onChange={e => setFormTopic(e.target.value)}
+                      placeholder="Ex: Crimes contra a pessoa"
+                      className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Pergunta (Frente do Cartão)</label>
+                  <textarea
+                    value={formQuestion}
+                    onChange={e => setFormQuestion(e.target.value)}
+                    placeholder="Ex: Qual a diferença entre homicídio doloso e culposo?"
+                    className="w-full h-24 bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20 resize-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Resposta (Verso do Cartão)</label>
+                  <textarea
+                    value={formAnswer}
+                    onChange={e => setFormAnswer(e.target.value)}
+                    placeholder="Ex: O homicídio doloso é quando há intenção de matar, enquanto o culposo..."
+                    className="w-full h-24 bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20 resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-xl border border-border font-bold hover:bg-muted transition-colors">Cancelar</button>
+                <button onClick={saveCard} disabled={!formSubject || !formQuestion || !formAnswer} className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-opacity disabled:opacity-50">
+                  {editingCard ? 'Salvar' : 'Criar Cartão'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
 // --- Main App ---
 
 const MainApp = () => {
@@ -1831,6 +3037,8 @@ const MainApp = () => {
           <SidebarItem icon={Brain} label="Edital" active={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} />
           <SidebarItem icon={Timer} label="Estudar" active={activeTab === 'study'} onClick={() => setActiveTab('study')} />
           <SidebarItem icon={Dumbbell} label="TAF" active={activeTab === 'taf'} onClick={() => setActiveTab('taf')} />
+          <SidebarItem icon={Calendar} label="Rotina" active={activeTab === 'routine'} onClick={() => setActiveTab('routine')} />
+          <SidebarItem icon={ClipboardList} label="Caderno de Erros" active={activeTab === 'errors'} onClick={() => setActiveTab('errors')} />
           <SidebarItem icon={Settings} label="Configurações" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </nav>
 
@@ -1861,6 +3069,8 @@ const MainApp = () => {
           {activeTab === 'syllabus' && <SyllabusManager key="syllabus" />}
           {activeTab === 'study' && <StudyTimer key="study" />}
           {activeTab === 'taf' && <TAFTracker key="taf" />}
+          {activeTab === 'routine' && <RoutinePlanner key="routine" />}
+          {activeTab === 'errors' && <ErrorNotebook key="errors" />}
           {activeTab === 'settings' && <SettingsPage key="settings" />}
         </AnimatePresence>
       </main>

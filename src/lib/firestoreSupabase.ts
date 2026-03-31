@@ -43,10 +43,12 @@ const parsePath = (path: string[]) => {
       table = path[4];
       filters['user_id'] = path[1];
       if (path[2] === 'subjects') filters['subject_id'] = path[3];
+      if (path[2] === 'error_cards') filters['card_id'] = path[3];
     } else if (path.length === 6) {
       table = path[4];
       filters['user_id'] = path[1];
       if (path[2] === 'subjects') filters['subject_id'] = path[3];
+      if (path[2] === 'error_cards') filters['card_id'] = path[3];
       filters['id'] = path[5];
     }
   } else {
@@ -156,7 +158,7 @@ const mapToFirebaseCamelCase = (obj: any) => {
     const camel = k.replace(/_([a-z])/g, g => g[1].toUpperCase());
     
     // Transform dates back to strings if needed
-    if (camel === 'createdAt' || camel === 'startTime' || camel === 'date' || camel === 'lastStudied') {
+    if (camel === 'createdAt' || camel === 'startTime' || camel === 'date' || camel === 'lastStudied' || camel === 'nextReview' || camel === 'reviewedAt') {
       result[camel] = v; // Keep as is since string ISO is fine
     } else {
       result[camel] = v;
