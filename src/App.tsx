@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { AuthProvider, useAuth } from './components/AuthProvider';
-import { Edit2, Clock, PenLine, ChevronDown, History, Calendar, ClipboardList, ChevronLeft, Eye, EyeOff, RotateCcw, X } from 'lucide-react';
+import { Edit2, Clock, PenLine, ChevronDown, History, Calendar, ClipboardList, ChevronLeft, Eye, EyeOff, RotateCcw, X, Upload } from 'lucide-react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -2367,6 +2367,12 @@ const ErrorNotebook = () => {
   const [selectedCardHistory, setSelectedCardHistory] = useState<string | null>(null);
   const [reviewHistory, setReviewHistory] = useState<ErrorCardReview[]>([]);
   const [filterSubject, setFilterSubject] = useState('all');
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkSubject, setBulkSubject] = useState('');
+  const [bulkTopic, setBulkTopic] = useState('');
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
 
   // Form
   const [formSubject, setFormSubject] = useState('');
@@ -2454,6 +2460,70 @@ const ErrorNotebook = () => {
       });
     }
     setShowCreateModal(false);
+  };
+
+  const saveBulkCards = async () => {
+    if (!profile || !bulkText.trim() || !bulkSubject.trim()) return;
+    setBulkImporting(true);
+    try {
+      const lines = bulkText.trim().split('\n').filter(l => l.trim());
+      let created = 0;
+      let errors: string[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        // Separar por ; (com ou sem espaços ao redor)
+        const parts = line.split(';').map(p => p.trim());
+        let question = '';
+        let answer = '';
+        if (parts.length >= 2) {
+          question = parts[0];
+          answer = parts[1];
+        } else {
+          errors.push(`Linha ${i + 1}: precisa ter pergunta e resposta separadas por ;`);
+          continue;
+        }
+        if (!question || !answer) {
+          errors.push(`Linha ${i + 1}: pergunta e resposta não podem estar vazias`);
+          continue;
+        }
+        await addDoc(collection(db, 'users', profile.uid, 'error_cards'), {
+          userId: profile.uid,
+          subjectName: bulkSubject.trim(),
+          topic: bulkTopic.trim(),
+          question,
+          answer,
+          difficulty: 2,
+          intervalDays: 1,
+          nextReview: today,
+          totalReviews: 0,
+          correctReviews: 0,
+        });
+        created++;
+      }
+      if (errors.length > 0) {
+        alert(`✅ ${created} cartões criados!\n\n⚠️ ${errors.length} linha(s) com erro:\n${errors.slice(0, 5).join('\n')}`);
+      } else {
+        alert(`✅ ${created} cartões criados com sucesso!`);
+      }
+      setBulkText('');
+      setBulkSubject('');
+      setBulkTopic('');
+      setShowBulkModal(false);
+    } catch (error: any) {
+      console.error(error);
+      alert('Erro ao importar cartões: ' + (error?.message || error));
+    } finally {
+      setBulkImporting(false);
+    }
+  };
+
+  const toggleSubjectExpanded = (subjectName: string) => {
+    setExpandedSubjects(prev => {
+      const next = new Set(prev);
+      if (next.has(subjectName)) next.delete(subjectName);
+      else next.add(subjectName);
+      return next;
+    });
   };
 
   const deleteCard = async (cardId: string) => {
@@ -2645,12 +2715,20 @@ const ErrorNotebook = () => {
           <h1 className="text-3xl font-bold tracking-tight">Caderno de Erros</h1>
           <p className="text-muted-foreground">Transforme seus erros em acertos com repetição espaçada.</p>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="bg-primary text-primary-foreground font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 self-start"
-        >
-          <Plus size={20} /> Novo Cartão
-        </button>
+        <div className="flex items-center gap-3 self-start">
+          <button
+            onClick={() => setShowBulkModal(true)}
+            className="border border-primary text-primary font-bold px-5 py-3 rounded-xl hover:bg-primary/10 transition-all flex items-center gap-2"
+          >
+            <Upload size={18} /> Importar em Massa
+          </button>
+          <button
+            onClick={openCreateModal}
+            className="bg-primary text-primary-foreground font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2"
+          >
+            <Plus size={20} /> Novo Cartão
+          </button>
+        </div>
       </header>
 
       {/* Banner de revisão pendente */}
@@ -2715,129 +2793,168 @@ const ErrorNotebook = () => {
           <p className="text-sm text-muted-foreground mt-1">Crie seu primeiro cartão para começar a memorizar com eficiência.</p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {(Object.entries(groupedBySubject) as [string, ErrorCard[]][]).map(([subjectName, subjectCards]) => (
-            <section key={subjectName} className="space-y-3">
-              <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                <ClipboardList size={14} />
-                {subjectName}
-                <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-full text-[10px]">{subjectCards.length}</span>
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {subjectCards.map(card => {
-                  const isPending = !card.nextReview || card.nextReview <= today;
-                  const aproveitamento = card.totalReviews > 0 ? Math.round((card.correctReviews / card.totalReviews) * 100) : 0;
-                  return (
-                    <motion.div
-                      key={card.id}
-                      layout
-                      className={cn(
-                        "bg-card border p-5 rounded-2xl shadow-sm space-y-3 group relative",
-                        isPending ? "border-orange-500/30" : "border-border"
-                      )}
-                    >
-                      {isPending && (
-                        <div className="absolute top-3 right-3">
-                          <span className="w-2.5 h-2.5 bg-orange-500 rounded-full block animate-pulse" />
-                        </div>
-                      )}
-                      <div>
-                        {card.topic && (
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{card.topic}</span>
-                        )}
-                        <p className="font-semibold text-sm mt-1 line-clamp-2">{card.question}</p>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className={cn(
-                          "px-2 py-0.5 rounded-full font-bold",
-                          card.difficulty === 1 ? "bg-green-500/10 text-green-500" :
-                          card.difficulty === 3 ? "bg-red-500/10 text-red-500" :
-                          "bg-yellow-500/10 text-yellow-500"
-                        )}>
-                          {card.difficulty === 1 ? 'Fácil' : card.difficulty === 3 ? 'Difícil' : 'Médio'}
-                        </span>
-                        <span>{card.totalReviews || 0} revisões</span>
-                        {card.totalReviews > 0 && (
-                          <span className={aproveitamento >= 70 ? 'text-green-500' : aproveitamento >= 50 ? 'text-yellow-500' : 'text-red-500'}>
-                            {aproveitamento}%
+        <div className="space-y-4">
+          {(Object.entries(groupedBySubject) as [string, ErrorCard[]][]).map(([subjectName, subjectCards]) => {
+            const isExpanded = expandedSubjects.has(subjectName);
+            const pendingCount = subjectCards.filter(c => !c.nextReview || c.nextReview <= today).length;
+            return (
+              <section key={subjectName} className="rounded-2xl bg-card border border-border overflow-hidden">
+                <button
+                  onClick={() => toggleSubjectExpanded(subjectName)}
+                  className="w-full flex items-center justify-between p-5 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <ClipboardList size={18} className="text-primary" />
+                    <div className="text-left">
+                      <h3 className="font-bold text-base">{subjectName}</h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{subjectCards.length} {subjectCards.length === 1 ? 'cartão' : 'cartões'}</span>
+                        {pendingCount > 0 && (
+                          <span className="text-[10px] font-bold text-orange-500 bg-orange-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse" />
+                            {pendingCount} pendente{pendingCount > 1 ? 's' : ''}
                           </span>
                         )}
                       </div>
-
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock size={12} />
-                        {isPending ? (
-                          <span className="text-orange-500 font-bold">Revisão pendente</span>
-                        ) : (
-                          <span>Próx: {card.nextReview}</span>
-                        )}
-                      </div>
-
-                      {/* Ações */}
-                      <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                        <button
-                          onClick={() => { setSelectedCardHistory(selectedCardHistory === card.id ? null : card.id); }}
-                          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
-                        >
-                          <History size={12} /> Histórico
-                        </button>
-                        <button
-                          onClick={() => openEditModal(card)}
-                          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
-                        >
-                          <Edit2 size={12} /> Editar
-                        </button>
-                        <button
-                          onClick={() => deleteCard(card.id)}
-                          className="text-xs text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
-                        >
-                          <Trash2 size={12} /> Excluir
-                        </button>
-                      </div>
-
-                      {/* Histórico inline */}
-                      <AnimatePresence>
-                        {selectedCardHistory === card.id && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pt-2 border-t border-border/30 space-y-2">
-                              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Histórico de Revisões</p>
-                              {reviewHistory.length === 0 ? (
-                                <p className="text-xs text-muted-foreground italic">Nenhuma revisão ainda.</p>
-                              ) : (
-                                reviewHistory.slice(0, 5).map(rev => (
-                                  <div key={rev.id} className="flex items-center justify-between text-xs py-1">
-                                    <span className="text-muted-foreground">
-                                      {rev.reviewedAt ? format(new Date(rev.reviewedAt), 'dd/MM/yy HH:mm') : '—'}
-                                    </span>
-                                    <span className={cn(
-                                      "px-2 py-0.5 rounded-full font-bold",
-                                      rev.result === 'easy' ? "bg-green-500/10 text-green-500" :
-                                      rev.result === 'good' ? "bg-blue-500/10 text-blue-500" :
-                                      rev.result === 'hard' ? "bg-orange-500/10 text-orange-500" :
-                                      "bg-red-500/10 text-red-500"
-                                    )}>
-                                      {rev.result === 'easy' ? '🤩 Fácil' : rev.result === 'good' ? '😊 Bom' : rev.result === 'hard' ? '😤 Difícil' : '😵 Esqueci'}
-                                    </span>
-                                    <span className="text-muted-foreground">{rev.previousInterval}d → {rev.newInterval}d</span>
+                    </div>
+                  </div>
+                  <motion.div
+                    animate={{ rotate: isExpanded ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronDown size={20} className="text-muted-foreground" />
+                  </motion.div>
+                </button>
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-5 pb-5 pt-1 border-t border-border/30">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {subjectCards.map(card => {
+                            const isPending = !card.nextReview || card.nextReview <= today;
+                            const aproveitamento = card.totalReviews > 0 ? Math.round((card.correctReviews / card.totalReviews) * 100) : 0;
+                            return (
+                              <motion.div
+                                key={card.id}
+                                layout
+                                className={cn(
+                                  "bg-muted/40 border p-5 rounded-2xl shadow-sm space-y-3 group relative",
+                                  isPending ? "border-orange-500/30" : "border-border/50"
+                                )}
+                              >
+                                {isPending && (
+                                  <div className="absolute top-3 right-3">
+                                    <span className="w-2.5 h-2.5 bg-orange-500 rounded-full block animate-pulse" />
                                   </div>
-                                ))
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                                )}
+                                <div>
+                                  {card.topic && (
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{card.topic}</span>
+                                  )}
+                                  <p className="font-semibold text-sm mt-1 line-clamp-2">{card.question}</p>
+                                </div>
+
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span className={cn(
+                                    "px-2 py-0.5 rounded-full font-bold",
+                                    card.difficulty === 1 ? "bg-green-500/10 text-green-500" :
+                                    card.difficulty === 3 ? "bg-red-500/10 text-red-500" :
+                                    "bg-yellow-500/10 text-yellow-500"
+                                  )}>
+                                    {card.difficulty === 1 ? 'Fácil' : card.difficulty === 3 ? 'Difícil' : 'Médio'}
+                                  </span>
+                                  <span>{card.totalReviews || 0} revisões</span>
+                                  {card.totalReviews > 0 && (
+                                    <span className={aproveitamento >= 70 ? 'text-green-500' : aproveitamento >= 50 ? 'text-yellow-500' : 'text-red-500'}>
+                                      {aproveitamento}%
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Clock size={12} />
+                                  {isPending ? (
+                                    <span className="text-orange-500 font-bold">Revisão pendente</span>
+                                  ) : (
+                                    <span>Próx: {card.nextReview}</span>
+                                  )}
+                                </div>
+
+                                {/* Ações */}
+                                <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+                                  <button
+                                    onClick={() => { setSelectedCardHistory(selectedCardHistory === card.id ? null : card.id); }}
+                                    className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
+                                  >
+                                    <History size={12} /> Histórico
+                                  </button>
+                                  <button
+                                    onClick={() => openEditModal(card)}
+                                    className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
+                                  >
+                                    <Edit2 size={12} /> Editar
+                                  </button>
+                                  <button
+                                    onClick={() => deleteCard(card.id)}
+                                    className="text-xs text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-muted"
+                                  >
+                                    <Trash2 size={12} /> Excluir
+                                  </button>
+                                </div>
+
+                                {/* Histórico inline */}
+                                <AnimatePresence>
+                                  {selectedCardHistory === card.id && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="pt-2 border-t border-border/30 space-y-2">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Histórico de Revisões</p>
+                                        {reviewHistory.length === 0 ? (
+                                          <p className="text-xs text-muted-foreground italic">Nenhuma revisão ainda.</p>
+                                        ) : (
+                                          reviewHistory.slice(0, 5).map(rev => (
+                                            <div key={rev.id} className="flex items-center justify-between text-xs py-1">
+                                              <span className="text-muted-foreground">
+                                                {rev.reviewedAt ? format(new Date(rev.reviewedAt), 'dd/MM/yy HH:mm') : '—'}
+                                              </span>
+                                              <span className={cn(
+                                                "px-2 py-0.5 rounded-full font-bold",
+                                                rev.result === 'easy' ? "bg-green-500/10 text-green-500" :
+                                                rev.result === 'good' ? "bg-blue-500/10 text-blue-500" :
+                                                rev.result === 'hard' ? "bg-orange-500/10 text-orange-500" :
+                                                "bg-red-500/10 text-red-500"
+                                              )}>
+                                                {rev.result === 'easy' ? '🤩 Fácil' : rev.result === 'good' ? '😊 Bom' : rev.result === 'hard' ? '😤 Difícil' : '😵 Esqueci'}
+                                              </span>
+                                              <span className="text-muted-foreground">{rev.previousInterval}d → {rev.newInterval}d</span>
+                                            </div>
+                                          ))
+                                        )}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </motion.div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+                  )}
+                </AnimatePresence>
+              </section>
+            );
+          })}
         </div>
       )}
 
@@ -2916,6 +3033,103 @@ const ErrorNotebook = () => {
                 <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-xl border border-border font-bold hover:bg-muted transition-colors">Cancelar</button>
                 <button onClick={saveCard} disabled={!formSubject || !formQuestion || !formAnswer} className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-opacity disabled:opacity-50">
                   {editingCard ? 'Salvar' : 'Criar Cartão'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Importação em Massa */}
+      <AnimatePresence>
+        {showBulkModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-card border border-border p-8 rounded-3xl shadow-2xl max-w-2xl w-full space-y-5"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Upload size={20} className="text-primary" />
+                  Importar Flashcards em Massa
+                </h3>
+                <button onClick={() => setShowBulkModal(false)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Disciplina *</label>
+                  <input
+                    type="text"
+                    value={bulkSubject}
+                    onChange={e => setBulkSubject(e.target.value)}
+                    placeholder="Ex: Direito Processual Penal"
+                    list="bulk-subject-suggestions"
+                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+                  />
+                  <datalist id="bulk-subject-suggestions">
+                    {uniqueSubjects.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-muted-foreground uppercase">Tópico (opcional)</label>
+                  <input
+                    type="text"
+                    value={bulkTopic}
+                    onChange={e => setBulkTopic(e.target.value)}
+                    placeholder="Ex: Lei Processual no Tempo"
+                    className="w-full bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 space-y-3">
+                <p className="text-sm font-bold text-primary">📋 Formato de importação</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Cada linha deve conter a <strong>Pergunta</strong> e a <strong>Resposta</strong> separadas por <strong>ponto e vírgula (;)</strong>
+                </p>
+                <div className="bg-background/80 rounded-xl p-3 font-mono text-xs">
+                  <p className="text-muted-foreground">Formato: <span className="text-primary">Pergunta ; Resposta</span></p>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Exemplo:</p>
+                <div className="bg-background/80 rounded-xl p-3 font-mono text-[11px] space-y-0.5 text-muted-foreground">
+                  <p>Lei Processual no Tempo: Qual o princípio? ; Tempus Regit Actum (Art. 2º CPP)</p>
+                  <p>Normas Híbridas: Como se comportam? ; Retroagem se forem benéficas ao réu</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-muted-foreground uppercase">Cole seus flashcards abaixo (um por linha)</label>
+                <textarea
+                  value={bulkText}
+                  onChange={e => setBulkText(e.target.value)}
+                  placeholder={"Pergunta ; Resposta\nPergunta ; Resposta\n..."}
+                  className="w-full h-48 bg-muted border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20 resize-none font-mono text-sm"
+                />
+                {bulkText.trim() && (
+                  <p className="text-xs text-muted-foreground">
+                    {bulkText.trim().split('\n').filter(l => l.trim()).length} linha(s) detectada(s)
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowBulkModal(false)} className="flex-1 py-3 rounded-xl border border-border font-bold hover:bg-muted transition-colors">Cancelar</button>
+                <button
+                  onClick={saveBulkCards}
+                  disabled={bulkImporting || !bulkText.trim() || !bulkSubject.trim()}
+                  className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {bulkImporting ? 'Importando...' : `Importar ${bulkText.trim() ? bulkText.trim().split('\n').filter(l => l.trim()).length : 0} Cartões`}
                 </button>
               </div>
             </motion.div>
