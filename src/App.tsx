@@ -2373,6 +2373,8 @@ const ErrorNotebook = () => {
   const [bulkSubject, setBulkSubject] = useState('');
   const [bulkTopic, setBulkTopic] = useState('');
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  const [showReviewPickerModal, setShowReviewPickerModal] = useState(false);
+  const [reviewSubjectFilter, setReviewSubjectFilter] = useState<string>('all');
 
   // Form
   const [formSubject, setFormSubject] = useState('');
@@ -2402,9 +2404,21 @@ const ErrorNotebook = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const pendingCards = cards.filter(c => {
+  const allPendingCards = cards.filter(c => {
     if (!c.nextReview) return true;
     return c.nextReview <= today;
+  });
+
+  // Cards pendentes filtrados por disciplina selecionada para revisão
+  const pendingCards = reviewSubjectFilter === 'all'
+    ? allPendingCards
+    : allPendingCards.filter(c => c.subjectName === reviewSubjectFilter);
+
+  // Disciplinas que têm cards pendentes
+  const pendingSubjects: string[] = Array.from(new Set<string>(allPendingCards.map(c => c.subjectName))).sort();
+  const pendingCountBySubject: Record<string, number> = {};
+  pendingSubjects.forEach(sub => {
+    pendingCountBySubject[sub] = allPendingCards.filter(c => c.subjectName === sub).length;
   });
 
   const uniqueSubjects = [...new Set(cards.map(c => c.subjectName))].sort();
@@ -2537,8 +2551,19 @@ const ErrorNotebook = () => {
     await deleteDoc(doc(db, 'users', profile.uid, 'error_cards', cardId));
   };
 
-  const startReview = () => {
-    if (pendingCards.length === 0) return;
+  const openReviewPicker = () => {
+    if (allPendingCards.length === 0) return;
+    setShowReviewPickerModal(true);
+  };
+
+  const startReviewWithSubject = (subject: string) => {
+    setReviewSubjectFilter(subject);
+    setShowReviewPickerModal(false);
+    // Precisamos calcular os cards filtrados aqui para verificar se há cards
+    const filtered = subject === 'all'
+      ? allPendingCards
+      : allPendingCards.filter(c => c.subjectName === subject);
+    if (filtered.length === 0) return;
     setReviewMode(true);
     setCurrentReviewIndex(0);
     setShowAnswer(false);
@@ -2607,7 +2632,12 @@ const ErrorNotebook = () => {
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Modo Revisão</h1>
-            <p className="text-muted-foreground">Cartão {currentReviewIndex + 1} de {pendingCards.length}</p>
+            <p className="text-muted-foreground">
+              Cartão {currentReviewIndex + 1} de {pendingCards.length}
+              {reviewSubjectFilter !== 'all' && (
+                <span className="ml-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{reviewSubjectFilter}</span>
+              )}
+            </p>
           </div>
           <button
             onClick={() => setReviewMode(false)}
@@ -2732,7 +2762,7 @@ const ErrorNotebook = () => {
       </header>
 
       {/* Banner de revisão pendente */}
-      {pendingCards.length > 0 && (
+      {allPendingCards.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2744,18 +2774,109 @@ const ErrorNotebook = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-orange-500 uppercase tracking-widest mb-1">Revisão Pendente</h2>
-              <p className="text-2xl font-black">{pendingCards.length} {pendingCards.length === 1 ? 'cartão' : 'cartões'} para revisar hoje</p>
-              <p className="text-xs text-muted-foreground mt-1">A repetição espaçada é a técnica mais eficiente para retenção de longo prazo.</p>
+              <p className="text-2xl font-black">{allPendingCards.length} {allPendingCards.length === 1 ? 'cartão' : 'cartões'} para revisar hoje</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {pendingSubjects.length > 1
+                  ? `Em ${pendingSubjects.length} disciplinas • Escolha qual revisar`
+                  : 'A repetição espaçada é a técnica mais eficiente para retenção de longo prazo.'}
+              </p>
             </div>
           </div>
           <button
-            onClick={startReview}
+            onClick={openReviewPicker}
             className="bg-primary text-primary-foreground font-bold px-8 py-4 rounded-2xl hover:opacity-90 transition-opacity text-lg shadow-lg shadow-primary/20 flex-shrink-0"
           >
             Iniciar Revisão
           </button>
         </motion.div>
       )}
+
+      {/* Modal Seleção de Disciplina para Revisão */}
+      <AnimatePresence>
+        {showReviewPickerModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            onClick={() => setShowReviewPickerModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-card border border-border p-8 rounded-3xl shadow-2xl max-w-md w-full space-y-6"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Escolha a Disciplina</h3>
+                  <p className="text-sm text-muted-foreground">Selecione qual disciplina deseja revisar</p>
+                </div>
+                <button onClick={() => setShowReviewPickerModal(false)} className="p-2 rounded-xl hover:bg-muted transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {/* Opção: Todas as disciplinas */}
+                <button
+                  onClick={() => startReviewWithSubject('all')}
+                  className="w-full text-left p-4 rounded-2xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 text-primary rounded-xl">
+                        <ClipboardList size={20} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-base">Todas as Disciplinas</p>
+                        <p className="text-xs text-muted-foreground">Revisar todos os cartões pendentes</p>
+                      </div>
+                    </div>
+                    <span className="px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-black">
+                      {allPendingCards.length}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Separador */}
+                {pendingSubjects.length > 1 && (
+                  <div className="flex items-center gap-3 py-2">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">ou escolha uma</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                )}
+
+                {/* Opções por disciplina */}
+                {pendingSubjects.map(sub => (
+                  <button
+                    key={sub}
+                    onClick={() => startReviewWithSubject(sub)}
+                    className="w-full text-left p-4 rounded-2xl border border-border/50 bg-muted/30 hover:bg-muted/60 hover:border-primary/30 transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-muted rounded-xl group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                          <BookOpen size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-base group-hover:text-primary transition-colors">{sub}</p>
+                          <p className="text-xs text-muted-foreground">{pendingCountBySubject[sub]} {pendingCountBySubject[sub] === 1 ? 'cartão pendente' : 'cartões pendentes'}</p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-500 text-sm font-black">
+                        {pendingCountBySubject[sub]}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Filtro por disciplina */}
       {uniqueSubjects.length > 1 && (
