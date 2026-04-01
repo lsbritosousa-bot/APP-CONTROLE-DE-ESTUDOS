@@ -2375,6 +2375,7 @@ const ErrorNotebook = () => {
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [showReviewPickerModal, setShowReviewPickerModal] = useState(false);
   const [reviewSubjectFilter, setReviewSubjectFilter] = useState<string>('all');
+  const [reviewSessionCards, setReviewSessionCards] = useState<ErrorCard[]>([]);
 
   // Form
   const [formSubject, setFormSubject] = useState('');
@@ -2559,11 +2560,12 @@ const ErrorNotebook = () => {
   const startReviewWithSubject = (subject: string) => {
     setReviewSubjectFilter(subject);
     setShowReviewPickerModal(false);
-    // Precisamos calcular os cards filtrados aqui para verificar se há cards
+    // Criar snapshot fixo dos cards para esta sessão de revisão
     const filtered = subject === 'all'
       ? allPendingCards
       : allPendingCards.filter(c => c.subjectName === subject);
     if (filtered.length === 0) return;
+    setReviewSessionCards([...filtered]);
     setReviewMode(true);
     setCurrentReviewIndex(0);
     setShowAnswer(false);
@@ -2571,7 +2573,7 @@ const ErrorNotebook = () => {
 
   const submitReview = async (result: 'forgot' | 'hard' | 'good' | 'easy') => {
     if (!profile) return;
-    const card = pendingCards[currentReviewIndex];
+    const card = reviewSessionCards[currentReviewIndex];
     if (!card) return;
 
     const prevInterval = card.intervalDays || 1;
@@ -2610,18 +2612,19 @@ const ErrorNotebook = () => {
     });
 
     // Avançar para próximo card
-    if (currentReviewIndex < pendingCards.length - 1) {
+    if (currentReviewIndex < reviewSessionCards.length - 1) {
       setCurrentReviewIndex(currentReviewIndex + 1);
       setShowAnswer(false);
     } else {
       setReviewMode(false);
+      setReviewSessionCards([]);
       alert('🎉 Revisão concluída! Todos os cartões pendentes foram revisados.');
     }
   };
 
-  // Modo Revisão
-  if (reviewMode && pendingCards.length > 0) {
-    const card = pendingCards[currentReviewIndex];
+  // Modo Revisão - usa reviewSessionCards (snapshot fixo) em vez de pendingCards (reativo)
+  if (reviewMode && reviewSessionCards.length > 0) {
+    const card = reviewSessionCards[currentReviewIndex];
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -2633,14 +2636,17 @@ const ErrorNotebook = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Modo Revisão</h1>
             <p className="text-muted-foreground">
-              Cartão {currentReviewIndex + 1} de {pendingCards.length}
+              Cartão {currentReviewIndex + 1} de {reviewSessionCards.length}
               {reviewSubjectFilter !== 'all' && (
                 <span className="ml-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{reviewSubjectFilter}</span>
               )}
             </p>
           </div>
           <button
-            onClick={() => setReviewMode(false)}
+            onClick={() => {
+              setReviewMode(false);
+              setReviewSessionCards([]);
+            }}
             className="px-4 py-2 rounded-xl border border-border font-bold hover:bg-muted transition-colors flex items-center gap-2"
           >
             <X size={16} /> Sair
@@ -2651,7 +2657,7 @@ const ErrorNotebook = () => {
         <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${((currentReviewIndex + 1) / pendingCards.length) * 100}%` }}
+            animate={{ width: `${((currentReviewIndex + 1) / reviewSessionCards.length) * 100}%` }}
             className="h-full bg-primary"
           />
         </div>
