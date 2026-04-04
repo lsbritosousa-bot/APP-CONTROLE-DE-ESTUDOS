@@ -138,6 +138,27 @@ const SyllabusManager = () => {
     }
   };
 
+  const handleDeleteSubject = async (subjectId: string, subjectName: string) => {
+    if (!profile) return;
+    if (!window.confirm(`Tem certeza que deseja excluir a disciplina "${subjectName}" e todos os seus tópicos?`)) return;
+    
+    try {
+      const topicsSnap = await getDocs(query(collection(db, 'users', profile.uid, 'subjects', subjectId, 'topics')));
+      for (const topicDoc of topicsSnap.docs) {
+        await deleteDoc(doc(db, 'users', profile.uid, 'subjects', subjectId, 'topics', topicDoc.id));
+      }
+      await deleteDoc(doc(db, 'users', profile.uid, 'subjects', subjectId));
+      if (selectedSubjectId === subjectId) {
+        const remainingSubjects = subjects.filter(s => s.id !== subjectId);
+        setSelectedSubjectId(remainingSubjects.length > 0 ? remainingSubjects[0].id : null);
+      }
+      alert(`Disciplina "${subjectName}" excluída com sucesso!`);
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao excluir disciplina.');
+    }
+  };
+
   const toggleTopicStatus = async (topic: Topic, field: 'studiedResumo' | 'studiedQuestoes' | 'studiedFlashcards') => {
     if (!profile || !selectedSubjectId) return;
     const topicRef = doc(db, 'users', profile.uid, 'subjects', selectedSubjectId, 'topics', topic.id);
@@ -217,16 +238,24 @@ const SyllabusManager = () => {
         <aside className="lg:col-span-1 space-y-2">
           <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground mb-4">Matérias</h3>
           {subjects.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSelectedSubjectId(s.id)}
-              className={cn(
-                "w-full text-left px-4 py-3 rounded-xl transition-all",
-                selectedSubjectId === s.id ? "bg-primary/10 text-primary font-bold border border-primary/20" : "hover:bg-muted"
-              )}
-            >
-              {s.name}
-            </button>
+            <div key={s.id} className="flex items-center gap-1 group">
+              <button
+                onClick={() => setSelectedSubjectId(s.id)}
+                className={cn(
+                  "flex-1 text-left px-4 py-3 rounded-xl transition-all",
+                  selectedSubjectId === s.id ? "bg-primary/10 text-primary font-bold border border-primary/20" : "hover:bg-muted"
+                )}
+              >
+                {s.name}
+              </button>
+              <button
+                onClick={() => handleDeleteSubject(s.id, s.name)}
+                className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                title="Excluir disciplina"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
           ))}
         </aside>
 
