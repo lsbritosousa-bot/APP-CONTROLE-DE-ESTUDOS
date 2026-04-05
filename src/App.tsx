@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { AuthProvider, useAuth } from './components/AuthProvider';
-import { Edit2, Clock, PenLine, ChevronDown, History, Calendar, ClipboardList, ChevronLeft, Eye, EyeOff, RotateCcw, X, Upload } from 'lucide-react';
+import { Edit2, Clock, PenLine, ChevronDown, History, Calendar, ClipboardList, ChevronLeft, Eye, EyeOff, RotateCcw, X, Upload, Menu } from 'lucide-react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -3301,6 +3301,7 @@ const ErrorNotebook = () => {
 const MainApp = () => {
   const { user, signIn, signUp, logout, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -3392,24 +3393,50 @@ const MainApp = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-72 border-r border-border bg-card/50 backdrop-blur-xl p-6 flex flex-col gap-8 sticky top-0 h-auto md:h-screen z-50">
-        <div className="flex items-center gap-3 px-2">
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-40">
+        <div className="flex items-center gap-3">
           <div className="p-2 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20">
             <Brain size={24} />
           </div>
           <span className="text-xl font-black tracking-tighter">CÉREBRO</span>
         </div>
+        <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors">
+          <Menu size={24} />
+        </button>
+      </div>
 
-        <nav className="flex-1 space-y-2">
-          <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <SidebarItem icon={BookOpen} label="Ciclo" active={activeTab === 'cycle'} onClick={() => setActiveTab('cycle')} />
-          <SidebarItem icon={Brain} label="Edital" active={activeTab === 'syllabus'} onClick={() => setActiveTab('syllabus')} />
-          <SidebarItem icon={Timer} label="Estudar" active={activeTab === 'study'} onClick={() => setActiveTab('study')} />
-          <SidebarItem icon={Dumbbell} label="TAF" active={activeTab === 'taf'} onClick={() => setActiveTab('taf')} />
-          <SidebarItem icon={Calendar} label="Rotina" active={activeTab === 'routine'} onClick={() => setActiveTab('routine')} />
-          <SidebarItem icon={ClipboardList} label="Caderno de Erros" active={activeTab === 'errors'} onClick={() => setActiveTab('errors')} />
-          <SidebarItem icon={Settings} label="Configurações" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+      {/* Sidebar Overlay */}
+      {isMobileMenuOpen && (
+        <div onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[45] md:hidden" />
+      )}
+
+      {/* Sidebar */}
+      <aside className={cn(
+        "w-72 border-r border-border bg-card/95 md:bg-card/50 backdrop-blur-xl p-6 flex flex-col gap-8 fixed md:sticky top-0 h-screen z-50 transition-transform duration-300",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20">
+              <Brain size={24} />
+            </div>
+            <span className="text-xl font-black tracking-tighter">CÉREBRO</span>
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-2 text-muted-foreground hover:bg-muted rounded-xl transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-2 overflow-y-auto">
+          <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={BookOpen} label="Ciclo" active={activeTab === 'cycle'} onClick={() => { setActiveTab('cycle'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={Brain} label="Edital" active={activeTab === 'syllabus'} onClick={() => { setActiveTab('syllabus'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={Timer} label="Estudar" active={activeTab === 'study'} onClick={() => { setActiveTab('study'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={Dumbbell} label="TAF" active={activeTab === 'taf'} onClick={() => { setActiveTab('taf'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={Calendar} label="Rotina" active={activeTab === 'routine'} onClick={() => { setActiveTab('routine'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={ClipboardList} label="Caderno de Erros" active={activeTab === 'errors'} onClick={() => { setActiveTab('errors'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={Settings} label="Configurações" active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} />
         </nav>
 
         <div className="pt-6 border-t border-border space-y-4">
