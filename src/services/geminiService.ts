@@ -51,3 +51,65 @@ export const parseSyllabus = async (text: string, examBoard?: string) => {
 
   return JSON.parse(response.text);
 };
+
+export interface DistillationResult {
+  raio_x: string;
+  resumo: string[];
+  armadilhas: string;
+  gatilho: string;
+  flashcard: { frente: string; verso: string };
+}
+
+export const distillContent = async (text: string, examBoard?: string): Promise<DistillationResult> => {
+  const model = "gemini-2.5-flash";
+  
+  const prompt = `
+Role: Especialista em Microlearning, Neurociência da Aprendizagem e Mentor de Concursos Públicos.
+Missão: Receber conteúdo bruto (leis, questões, doutrina) e transformá-lo em um "Resumo Autossuficiente de Alta Retenção".
+
+Regras Inegociáveis:
+- Gatilho Inicial: COMECE SEMPRE o processamento, mas como você vai retornar em JSON, apenas garanta o preenchimento correto dos campos pedidos.
+- Higiene Textual: Zero enrolação. Frases curtas e diretas.
+- Negrito Estratégico (Alerta de Perigo): O uso de **negrito** é estritamente proibido para enfeite. Deve ser usado APENAS em prazos, exceções, palavras-chave de pegadinhas e conceitos que as bancas costumam trocar.
+- Autossuficiência: O resumo deve permitir resolver questões sobre o tema sem ler o original.
+${examBoard ? `- Filtro de Banca: O usuário focou na banca: **${examBoard}**. Personalize as "Armadilhas" para os vícios e padrões específicos desta banca.` : ''}
+
+Conteúdo Bruto a ser destilado:
+${text}
+
+Retorne ESTRITAMENTE o resultado no formato JSON exigido pelo Schema. O resumo deve ser uma lista de strings (bullet points lógicos).
+`;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          raio_x: { type: Type.STRING, description: "Conceito central em no máximo 2 linhas." },
+          resumo: { 
+            type: Type.ARRAY, 
+            items: { type: Type.STRING },
+            description: "O núcleo duro em bullet points lógicos."
+          },
+          armadilhas: { type: Type.STRING, description: "Onde a banca mente (Regra X vs Mentira Y)." },
+          gatilho: { type: Type.STRING, description: "Mnemônico ou associação lógica absurda." },
+          flashcard: {
+            type: Type.OBJECT,
+            properties: {
+              frente: { type: Type.STRING, description: "Pergunta formatada para Anki." },
+              verso: { type: Type.STRING, description: "Resposta formatada para Anki." }
+            },
+            required: ["frente", "verso"],
+            description: "Pergunta e Resposta formatada para Anki (Frente/Verso)."
+          }
+        },
+        required: ["raio_x", "resumo", "armadilhas", "gatilho", "flashcard"]
+      }
+    }
+  });
+
+  return JSON.parse(response.text);
+};

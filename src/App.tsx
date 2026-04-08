@@ -17,7 +17,8 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Wand2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -27,6 +28,7 @@ import { Subject, Topic, StudySession, TAFSession, ExerciseType } from './types'
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isToday, isSameDay } from 'date-fns';
 
 import { parseSyllabus } from './services/geminiService';
+import { DistillationMentor } from './components/DistillationMentor';
 
 // --- Components ---
 
@@ -3436,6 +3438,7 @@ const MainApp = () => {
           <SidebarItem icon={Dumbbell} label="TAF" active={activeTab === 'taf'} onClick={() => { setActiveTab('taf'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Calendar} label="Rotina" active={activeTab === 'routine'} onClick={() => { setActiveTab('routine'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={ClipboardList} label="Caderno de Erros" active={activeTab === 'errors'} onClick={() => { setActiveTab('errors'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={Wand2} label="Mentor" active={activeTab === 'mentor'} onClick={() => { setActiveTab('mentor'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Settings} label="Configurações" active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} />
         </nav>
 
@@ -3468,6 +3471,7 @@ const MainApp = () => {
           {activeTab === 'taf' && <TAFTracker key="taf" />}
           {activeTab === 'routine' && <RoutinePlanner key="routine" />}
           {activeTab === 'errors' && <ErrorNotebook key="errors" />}
+          {activeTab === 'mentor' && <DistillationMentor key="mentor" />}
           {activeTab === 'settings' && <SettingsPage key="settings" />}
         </AnimatePresence>
       </main>
