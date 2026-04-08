@@ -205,7 +205,8 @@ export const DistillationMentor = () => {
           <motion.section 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="space-y-6 pt-4 print:pt-0"
+            className="space-y-6 pt-4 print:pt-0 print:text-black print:[&_*]:text-black"
+            style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' as any }}
           >
             <div className="flex items-center justify-between print:hidden">
               <h2 className="text-2xl font-bold">Resultado da Destilação</h2>
@@ -226,46 +227,46 @@ export const DistillationMentor = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:grid-cols-1 print:gap-4">
               
               {/* Raio X (Ocupa 2 colunas) */}
-              <div className="md:col-span-2 bg-[#1e293b]/5 border-l-4 border-slate-500 p-6 rounded-r-2xl shadow-sm print:bg-white print:border-l-4">
+              <div className="md:col-span-2 bg-[#1e293b]/5 border-l-4 border-slate-500 p-6 rounded-r-2xl shadow-sm print:bg-slate-100 print:border-l-4">
                 <div className="flex items-center gap-2 text-slate-500 font-bold uppercase tracking-widest text-xs mb-2">
                   <Zap size={16} /> Raio X
                 </div>
-                <p className="text-lg font-medium">{formatBoldText(result.raio_x)}</p>
+                <p className="text-lg font-medium print:text-slate-900">{formatBoldText(result.raio_x)}</p>
               </div>
 
               {/* Resumo */}
-              <div className="bg-blue-500/5 border-l-4 border-blue-600 p-6 rounded-r-2xl shadow-sm print:bg-white print:border-blue-600">
+              <div className="bg-blue-500/5 border-l-4 border-blue-600 p-6 rounded-r-2xl shadow-sm print:bg-blue-50 print:border-blue-600">
                 <div className="flex items-center gap-2 text-blue-600 font-bold uppercase tracking-widest text-xs mb-4">
                   <BookOpen size={16} /> Resumo
                 </div>
                 <ul className="space-y-2">
                   {result.resumo.map((item, idx) => (
                     <li key={idx} className="flex gap-2">
-                      <span className="text-blue-500 font-bold">•</span>
-                      <span>{formatBoldText(item)}</span>
+                      <span className="text-blue-500 print:text-blue-700 font-bold">•</span>
+                      <span className="print:text-slate-900">{formatBoldText(item)}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
               {/* Armadilhas */}
-              <div className="bg-yellow-500/5 border-l-4 border-yellow-500 p-6 rounded-r-2xl shadow-sm print:bg-white print:border-yellow-500">
+              <div className="bg-yellow-500/5 border-l-4 border-yellow-500 p-6 rounded-r-2xl shadow-sm print:bg-yellow-50 print:border-yellow-500">
                 <div className="flex items-center gap-2 text-yellow-600 font-bold uppercase tracking-widest text-xs mb-2">
                   <AlertTriangle size={16} /> Armadilhas da Banca
                 </div>
-                <p>{formatBoldText(result.armadilhas)}</p>
+                <p className="print:text-slate-900">{formatBoldText(result.armadilhas)}</p>
               </div>
 
               {/* Gatilho Menmônico (Ocupa 2 colunas) */}
-              <div className="md:col-span-2 bg-orange-500/5 border-l-4 border-orange-600 p-6 rounded-r-2xl shadow-sm print:bg-white print:border-orange-600 print:break-inside-avoid">
+              <div className="md:col-span-2 bg-orange-500/5 border-l-4 border-orange-600 p-6 rounded-r-2xl shadow-sm print:bg-orange-50 print:border-orange-600 print:break-inside-avoid">
                 <div className="flex items-center gap-2 text-orange-600 font-bold uppercase tracking-widest text-xs mb-2">
                   <Wand2 size={16} /> Gatilho de Memória
                 </div>
-                <p className="text-lg italic font-medium">"{formatBoldText(result.gatilho)}"</p>
+                <p className="text-lg italic font-medium print:text-slate-900">"{formatBoldText(result.gatilho)}"</p>
               </div>
 
               {/* Anki / Flashcard (Ocupa 2 colunas) */}
-              <div className="md:col-span-2 bg-red-500/5 border-l-4 border-red-600 p-6 rounded-r-2xl shadow-sm print:bg-white print:border-red-600 print:break-inside-avoid relative group">
+              <div className="md:col-span-2 bg-red-500/5 border-l-4 border-red-600 p-6 rounded-r-2xl shadow-sm print:bg-red-50 print:border-red-600 print:break-inside-avoid relative group">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-red-600 font-bold uppercase tracking-widest text-xs">
                     <Target size={16} /> Flashcard (Padrão Anki)
@@ -280,13 +281,13 @@ export const DistillationMentor = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-background/80 p-4 rounded-xl border border-red-500/20 print:border-red-200">
-                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">Frente (Pergunta)</p>
-                    <p className="font-medium">{formatBoldText(result.flashcard.frente)}</p>
+                  <div className="bg-background/80 p-4 rounded-xl border border-red-500/20 print:bg-white print:border-red-300">
+                    <p className="text-[10px] font-bold text-red-500 print:text-red-700 uppercase tracking-widest mb-1">Frente (Pergunta)</p>
+                    <p className="font-medium print:text-slate-900">{formatBoldText(result.flashcard.frente)}</p>
                   </div>
-                  <div className="bg-background/80 p-4 rounded-xl border border-red-500/20 print:border-red-200">
-                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">Verso (Resposta)</p>
-                    <p className="font-medium">{formatBoldText(result.flashcard.verso)}</p>
+                  <div className="bg-background/80 p-4 rounded-xl border border-red-500/20 print:bg-white print:border-red-300">
+                    <p className="text-[10px] font-bold text-red-500 print:text-red-700 uppercase tracking-widest mb-1">Verso (Resposta)</p>
+                    <p className="font-medium print:text-slate-900">{formatBoldText(result.flashcard.verso)}</p>
                   </div>
                 </div>
               </div>
