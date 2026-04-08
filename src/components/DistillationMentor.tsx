@@ -66,8 +66,9 @@ export const DistillationMentor = () => {
       setResult(res);
       saveToHistory(res);
     } catch (error) {
-      console.error(error);
-      alert('Erro ao destilar conteúdo. Verifique sua conexão ou a formatação retornada.');
+      console.error("Erro na destilação:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`Erro ao destilar conteúdo. Detalhes: ${msg}\n\nTente alterar algumas aspas ou quebras de linha no texto enviado, ou tente novamente em alguns instantes.`);
     } finally {
       setIsProcessing(false);
     }

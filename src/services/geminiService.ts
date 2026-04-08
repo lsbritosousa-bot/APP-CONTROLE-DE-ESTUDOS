@@ -3,6 +3,13 @@ import { GoogleGenAI, Type } from "@google/genai";
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
+const safetySettings = [
+  { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+  { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }
+];
+
 export const parseSyllabus = async (text: string, examBoard?: string) => {
   const model = "gemini-2.5-flash";
   
@@ -23,6 +30,7 @@ export const parseSyllabus = async (text: string, examBoard?: string) => {
     model,
     contents: prompt,
     config: {
+      safetySettings,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.ARRAY,
@@ -49,10 +57,25 @@ export const parseSyllabus = async (text: string, examBoard?: string) => {
     }
   });
 
-  return JSON.parse(response.text);
+  const rawText = response.text || '';
+  try {
+    let cleanedJSON = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    if (!cleanedJSON.startsWith('[')) {
+      const start = cleanedJSON.indexOf('[');
+      const end = cleanedJSON.lastIndexOf(']');
+      if (start !== -1 && end !== -1 && start < end) {
+        cleanedJSON = cleanedJSON.substring(start, end + 1);
+      }
+    }
+    return JSON.parse(cleanedJSON);
+  } catch (error) {
+    console.error("Erro no parse do JSON (parseSyllabus):", rawText);
+    throw new Error("Erro de formatação na resposta (parseSyllabus).");
+  }
 };
 
 export interface DistillationResult {
+  gatilho_inicial: string;
   raio_x: string;
   resumo: string[];
   armadilhas: string;
@@ -68,8 +91,8 @@ Role: Especialista em Microlearning, Neurociência da Aprendizagem e Mentor de C
 Missão: Receber conteúdo bruto (leis, questões, doutrina) e transformá-lo em um "Resumo Autossuficiente de Alta Retenção".
 
 Regras Inegociáveis:
-- Gatilho Inicial: COMECE SEMPRE o processamento, mas como você vai retornar em JSON, apenas garanta o preenchimento correto dos campos pedidos.
-- Higiene Textual: Zero enrolação. Frases curtas e diretas.
+- Gatilho Inicial: Toda resposta DEVE começar com a mensagem "Material recebido. Iniciando destilação de conteúdo." Contudo, como o retorno deverá ser ESTRITAMENTE em JSON, coloque essa mensagem dento do campo 'gatilho_inicial'.
+- Higiene Textual: Zero enrolação. Frases curtas e diretas. SEMPRE COM ASPAS DUPLAS, para não quebrar o JSON.
 - Negrito Estratégico (Alerta de Perigo): O uso de **negrito** é estritamente proibido para enfeite. Deve ser usado APENAS em prazos, exceções, palavras-chave de pegadinhas e conceitos que as bancas costumam trocar.
 - Autossuficiência: O resumo deve permitir resolver questões sobre o tema sem ler o original.
 ${examBoard ? `- Filtro de Banca: O usuário focou na banca: **${examBoard}**. Personalize as "Armadilhas" para os vícios e padrões específicos desta banca.` : ''}
@@ -77,39 +100,61 @@ ${examBoard ? `- Filtro de Banca: O usuário focou na banca: **${examBoard}**. P
 Conteúdo Bruto a ser destilado:
 ${text}
 
-Retorne ESTRITAMENTE o resultado no formato JSON exigido pelo Schema. O resumo deve ser uma lista de strings (bullet points lógicos).
+Retorne ESTRITAMENTE o resultado no formato JSON exigido pelo Schema. Não inclua comentários fora do JSON.
 `;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          raio_x: { type: Type.STRING, description: "Conceito central em no máximo 2 linhas." },
-          resumo: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
-            description: "O núcleo duro em bullet points lógicos."
-          },
-          armadilhas: { type: Type.STRING, description: "Onde a banca mente (Regra X vs Mentira Y)." },
-          gatilho: { type: Type.STRING, description: "Mnemônico ou associação lógica absurda." },
-          flashcard: {
-            type: Type.OBJECT,
-            properties: {
-              frente: { type: Type.STRING, description: "Pergunta formatada para Anki." },
-              verso: { type: Type.STRING, description: "Resposta formatada para Anki." }
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        safetySettings,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            gatilho_inicial: { type: Type.STRING, description: "A mensagem obrigatória de início." },
+            raio_x: { type: Type.STRING, description: "Conceito central em no máximo 2 linhas." },
+            resumo: { 
+              type: Type.ARRAY, 
+              items: { type: Type.STRING },
+              description: "O núcleo duro em bullet points lógicos."
             },
-            required: ["frente", "verso"],
-            description: "Pergunta e Resposta formatada para Anki (Frente/Verso)."
-          }
-        },
-        required: ["raio_x", "resumo", "armadilhas", "gatilho", "flashcard"]
+            armadilhas: { type: Type.STRING, description: "Onde a banca mente (Regra X vs Mentira Y)." },
+            gatilho: { type: Type.STRING, description: "Mnemônico ou associação lógica absurda." },
+            flashcard: {
+              type: Type.OBJECT,
+              properties: {
+                frente: { type: Type.STRING, description: "Pergunta formatada para Anki." },
+                verso: { type: Type.STRING, description: "Resposta formatada para Anki." }
+              },
+              required: ["frente", "verso"],
+              description: "Pergunta e Resposta formatada para Anki (Frente/Verso)."
+            }
+          },
+          required: ["gatilho_inicial", "raio_x", "resumo", "armadilhas", "gatilho", "flashcard"]
+        }
+      }
+    });
+
+    const rawText = response.text || '';
+    
+    let cleanedJSON = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    if (!cleanedJSON.startsWith('{')) {
+      const start = cleanedJSON.indexOf('{');
+      const end = cleanedJSON.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && start < end) {
+        cleanedJSON = cleanedJSON.substring(start, end + 1);
       }
     }
-  });
 
-  return JSON.parse(response.text);
+    return JSON.parse(cleanedJSON);
+  } catch (error) {
+    console.error("Erro em distillContent:", error);
+    if (error instanceof Error && error.message.includes("JSON")) {
+       throw new Error("Erro de formatação JSON na resposta da IA.");
+    }
+    throw error;
+  }
 };
+
