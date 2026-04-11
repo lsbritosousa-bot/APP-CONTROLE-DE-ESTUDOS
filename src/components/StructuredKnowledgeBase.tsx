@@ -361,13 +361,13 @@ export const StructuredKnowledgeBase = () => {
                              }
                           }}
                           className={cn(
-                            "w-full text-left px-5 py-4 rounded-2xl transition-all flex justify-between items-center text-lg font-black border-2",
+                            "w-full text-left pl-5 pr-[5.5rem] py-4 rounded-2xl transition-all flex justify-between items-center text-lg font-black border-2",
                             isDiscSelected 
                               ? theme === 'dark' ? "bg-slate-800 border-indigo-500 text-indigo-400" : "bg-indigo-50 border-indigo-200 text-indigo-900" 
                               : theme === 'dark' ? "bg-slate-800/50 border-slate-700/50 hover:bg-slate-700 text-slate-300" : "bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-700"
                           )}
                         >
-                          <span className="truncate pr-2">{disc.name}</span>
+                          <span className="truncate">{disc.name}</span>
                           <ChevronDown size={20} className={cn("flex-shrink-0 transition-transform", isDiscSelected ? "rotate-180" : "")} />
                         </button>
                         <button 
@@ -396,14 +396,14 @@ export const StructuredKnowledgeBase = () => {
                                    <button
                                      onClick={() => setSelectedTopic(topic)}
                                      className={cn(
-                                       "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 text-base font-bold",
+                                       "w-full text-left pl-4 pr-[5.5rem] py-3 rounded-xl transition-all flex items-center gap-3 text-base font-bold",
                                        selectedTopic === topic
                                         ? "bg-indigo-600 text-white shadow-md"
                                         : theme === 'dark' ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100 border border-transparent hover:border-slate-200"
                                      )}
                                    >
                                      <FolderOpen size={16} className="flex-shrink-0" /> 
-                                     <span className="truncate pr-14">{topic}</span>
+                                     <span className="truncate">{topic}</span>
                                    </button>
                                    <button 
                                      onClick={(e) => { e.stopPropagation(); handleDeleteTopic(disc.id, topic); }}
