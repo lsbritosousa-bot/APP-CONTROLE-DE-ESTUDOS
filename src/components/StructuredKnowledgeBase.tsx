@@ -806,7 +806,202 @@ const currentDisc = disciplines.find(d => d.id === selectedDiscipline);
                         </div>
                       ))}
                     </div>
+                )}
+
+                {/* PILARES 1 A 9 - DOUTRINADOR JURÍDICO SÊNIOR */}
+                {currentData.nucleoEssencial && currentData.nucleoEssencial.fichas && currentData.nucleoEssencial.fichas.length > 0 && (
+                  <section className="space-y-8 mt-16 border-t-2 pt-16" style={{ borderColor: theme === 'dark' ? '#334155' : '#E2E8F0' }}>
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-indigo-400 border-indigo-500' : 'text-indigo-900 border-indigo-900')}>
+                       <Target size={32} /> 1. Núcleo Essencial (Pareto 80/20)
+                     </h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       {currentData.nucleoEssencial.fichas.map((ficha, i) => (
+                          <div key={i} className={cn("p-6 rounded-2xl border-l-4 shadow-sm", theme === 'dark' ? 'bg-slate-800/50 border-indigo-500' : 'bg-slate-50 border-indigo-900')}>
+                             <h4 className={cn("font-black text-xl mb-3", theme === 'dark' ? 'text-indigo-300' : 'text-indigo-800')}>{formatBold(ficha.titulo)}</h4>
+                             <p className="text-justify leading-relaxed">{formatBold(ficha.definicaoCurta)}</p>
+                          </div>
+                       ))}
+                     </div>
                   </section>
+                )}
+
+                {currentData.analiseDoutrinaria && (
+                  <section className="space-y-8 mt-16">
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-indigo-400 border-indigo-500' : 'text-indigo-900 border-indigo-900')}>
+                       <Library size={32} /> 2. Análise Doutrinária Profunda
+                     </h3>
+                     <div className="space-y-6 text-justify leading-loose text-xl">
+                       <p>{formatBold(currentData.analiseDoutrinaria.texto)}</p>
+                       <div className={cn("mt-8 p-8 rounded-2xl border-2 italic shadow-inner", theme === 'dark' ? 'bg-slate-800/30 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700')}>
+                         <strong className="font-black text-2xl mb-4 block normal-case not-italic flex items-center gap-2"><Brain className="text-indigo-500" /> Divergências e Reflexões:</strong>
+                         {formatBold(currentData.analiseDoutrinaria.divergencias)}
+                       </div>
+                     </div>
+                  </section>
+                )}
+
+                {currentData.quadrosSinoticos && currentData.quadrosSinoticos.length > 0 && (
+                  <section className="space-y-8 mt-16">
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-indigo-400 border-indigo-500' : 'text-indigo-900 border-indigo-900')}>
+                       <Scale size={32} /> 3. Quadros Sinóticos Comparativos
+                     </h3>
+                     <div className="space-y-12">
+                       {currentData.quadrosSinoticos.map((quadro, i) => (
+                          <div key={i} className="overflow-hidden rounded-2xl border-2 shadow-lg" style={{ borderColor: theme === 'dark' ? '#334155' : '#E2E8F0' }}>
+                             <div className={cn("p-4 font-black text-xl text-center uppercase tracking-widest", theme === 'dark' ? 'bg-slate-800 text-indigo-300' : 'bg-slate-100 text-indigo-900')}>
+                               {formatBold(quadro.titulo)}
+                             </div>
+                             <div className="overflow-x-auto">
+                                <table className="table-auto w-full text-left border-collapse">
+                                   <thead>
+                                     <tr>
+                                       {quadro.comparativo.headers.map((h, hi) => <th key={hi} className={cn("p-5 border-b-2 font-black text-lg", theme === 'dark' ? 'border-slate-700 bg-slate-900/50 text-slate-300' : 'border-slate-300 bg-white text-slate-800')}>{formatBold(h)}</th>)}
+                                     </tr>
+                                   </thead>
+                                   <tbody className={cn("divide-y", theme === 'dark' ? 'divide-slate-700/50 bg-slate-800/20' : 'divide-slate-200 bg-white')}>
+                                      {quadro.comparativo.rows.map((row, ri) => (
+                                         <tr key={ri} className="hover:bg-slate-500/5 transition-colors">
+                                            {row.map((cell, ci) => <td key={ci} className="p-5 align-top leading-relaxed">{formatBold(cell)}</td>)}
+                                         </tr>
+                                      ))}
+                                   </tbody>
+                                </table>
+                             </div>
+                          </div>
+                       ))}
+                     </div>
+                  </section>
+                )}
+
+                {currentData.literalidadeBaseLegal && currentData.literalidadeBaseLegal.length > 0 && (
+                   <section className="space-y-8 mt-16">
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-indigo-400 border-indigo-500' : 'text-indigo-900 border-indigo-900')}>
+                       <FileCheck size={32} /> 4. Literalidade e Base Legal
+                     </h3>
+                     <div className="space-y-10">
+                        {currentData.literalidadeBaseLegal.map((lei, idx) => (
+                          <div key={idx} className="space-y-4">
+                             <h4 className={cn("font-black text-2xl flex items-center gap-3", theme === 'dark' ? 'text-slate-200' : 'text-[#1B365D]')}><div className="w-4 h-4 rounded-md bg-indigo-500"></div>{formatBold(lei.artigo)}</h4>
+                             <p className="leading-relaxed text-justify pl-8 border-l-4 text-xl border-slate-300 dark:border-slate-600 font-serif italic text-slate-600 dark:text-slate-400">"{formatBold(lei.texto)}"</p>
+                             <div className={cn("p-6 mt-4 rounded-xl ml-8 shadow-sm flex gap-4 items-start", theme === 'dark' ? 'bg-[#1E293B] border border-slate-700 text-indigo-200' : 'bg-slate-50 border border-slate-200 text-indigo-900')}>
+                                <Brain size={28} className="shrink-0 mt-1 opacity-50" />
+                                <div>
+                                  <strong className="font-black text-lg block mb-1 uppercase tracking-wide opacity-70">Comentário do Doutrinador:</strong>
+                                  <p className="text-justify font-medium">{formatBold(lei.comentario)}</p>
+                                </div>
+                             </div>
+                          </div>
+                        ))}
+                     </div>
+                   </section>
+                )}
+
+                {currentData.jurisprudenciaSumulas && currentData.jurisprudenciaSumulas.length > 0 && (
+                   <section className="space-y-8 mt-16">
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-indigo-400 border-indigo-500' : 'text-indigo-900 border-indigo-900')}>
+                       <Scale size={32} /> 5. Jurisprudência e Súmulas
+                     </h3>
+                     <div className="grid grid-cols-1 gap-8">
+                        {currentData.jurisprudenciaSumulas.map((jur, idx) => (
+                           <div key={idx} className={cn("p-8 rounded-2xl relative overflow-hidden shadow-md", theme === 'dark' ? 'bg-slate-800/40 border border-slate-700' : 'bg-white border border-slate-200')}>
+                              <div className={cn("absolute top-0 right-0 px-4 py-2 text-sm font-black uppercase tracking-widest rounded-bl-2xl", theme === 'dark' ? 'bg-slate-700 text-indigo-300' : 'bg-slate-200 text-indigo-900')}>{jur.origem}</div>
+                              <h4 className={cn("font-black text-2xl mb-4 pr-24 leading-tight", theme === 'dark' ? 'text-slate-100' : 'text-slate-900')}>{formatBold(jur.tese)}</h4>
+                              <p className="leading-relaxed text-justify text-lg opacity-90">{formatBold(jur.texto)}</p>
+                           </div>
+                        ))}
+                     </div>
+                   </section>
+                )}
+
+                {currentData.puloDoGatoPegadinhas && currentData.puloDoGatoPegadinhas.length > 0 && (
+                   <section className="space-y-8 mt-16">
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-orange-500 border-orange-500' : 'text-orange-600 border-orange-600')}>
+                       <AlertTriangle size={32} /> 6. O "Pulo do Gato"
+                     </h3>
+                     <div className="space-y-6">
+                        {currentData.puloDoGatoPegadinhas.map((peg, idx) => (
+                           <div key={idx} className={cn("flex gap-6 items-start p-6 md:p-8 rounded-2xl border-l-8 shadow-md", theme === 'dark' ? 'bg-orange-950/20 border-orange-500' : 'bg-orange-50 border-orange-500')}>
+                              <AlertTriangle className="shrink-0 text-orange-500 mt-1" size={36} />
+                              <div>
+                                <span className={cn("font-black text-xl block mb-2 uppercase tracking-wide", theme === 'dark' ? 'text-orange-400' : 'text-orange-700')}>{peg.tipo}</span>
+                                <p className={cn("font-medium text-xl leading-relaxed text-justify", theme === 'dark' ? 'text-orange-200' : 'text-orange-900')}>{formatBold(peg.texto)}</p>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                   </section>
+                )}
+
+                {currentData.metodoFeynman && currentData.metodoFeynman.length > 0 && (
+                   <section className="space-y-8 mt-16">
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-yellow-400 border-yellow-500' : 'text-yellow-600 border-yellow-600')}>
+                       <Lightbulb size={32} /> 7. Método de Feynman
+                     </h3>
+                     <div className="grid grid-cols-1 gap-8">
+                        {currentData.metodoFeynman.map((fey, idx) => (
+                           <div key={idx} className={cn("p-8 rounded-3xl border-4 relative", theme === 'dark' ? 'bg-slate-900 border-yellow-500/30' : 'bg-white border-yellow-400')}>
+                              <Lightbulb size={40} className="absolute -top-6 -left-6 text-yellow-500 bg-page rounded-full p-1" />
+                              <h4 className="font-black text-2xl mb-4 text-yellow-700 dark:text-yellow-500 ml-4">{formatBold(fey.conceito)}</h4>
+                              <p className="italic text-xl text-justify leading-relaxed ml-4 opacity-90 border-l-4 border-yellow-400 pl-4">"{formatBold(fey.analogiaSimplificada)}"</p>
+                           </div>
+                        ))}
+                     </div>
+                   </section>
+                )}
+
+                {currentData.questoesFixacao && currentData.questoesFixacao.length > 0 && (
+                   <section className="space-y-8 mt-16">
+                     <h3 className={cn("text-3xl font-black mb-8 uppercase tracking-widest flex items-center gap-3 border-b-4 pb-4 w-max", theme === 'dark' ? 'text-indigo-400 border-indigo-500' : 'text-indigo-900 border-indigo-900')}>
+                       <Target size={32} /> 8. Questões de Alto Nível
+                     </h3>
+                     <div className="space-y-12">
+                       {currentData.questoesFixacao.map((q, idx) => (
+                         <div key={idx} className={cn("p-8 md:p-10 rounded-3xl border shadow-lg", theme === 'dark' ? 'bg-slate-900/50 border-slate-700' : 'bg-white border-slate-200')}>
+                           <p className="font-black text-2xl mb-8 leading-relaxed text-justify flex items-start gap-4">
+                             <span className="shrink-0 w-12 h-12 flex items-center justify-center bg-indigo-500 text-white rounded-xl text-xl">Q{idx + 1}</span> 
+                             <span className="mt-2">{formatBold(q.enunciado)}</span>
+                           </p>
+                           <div className="space-y-4 ml-0 md:ml-16 mb-8 text-xl">
+                             {q.alternativas.map((alt, ai) => (
+                               <div key={ai} className={cn("flex gap-4 p-4 rounded-xl border-2 transition-colors cursor-crosshair", theme === 'dark' ? 'border-slate-800 hover:border-slate-600 hover:bg-slate-800' : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50')}>
+                                 <span className="font-black opacity-40 uppercase w-8 text-center shrink-0">{['a','b','c','d','e'][ai]})</span> 
+                                 <span className="text-justify font-medium">{formatBold(alt)}</span>
+                               </div>
+                             ))}
+                           </div>
+                           <details className="outline-none group mt-10 md:ml-16">
+                             <summary className="font-black cursor-pointer text-xl flex items-center justify-center p-5 rounded-2xl gap-3 w-full text-center transition-colors bg-indigo-500 text-white hover:bg-indigo-600 shadow-xl shadow-indigo-500/20">
+                               Exibir Resolução do Doutrinador <ChevronDown size={28} className="group-open:rotate-180 transition-transform"/>
+                             </summary>
+                             <div className="mt-6 p-8 rounded-3xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50">
+                               <div className="inline-block px-6 py-2 font-black mb-6 rounded-xl tracking-widest bg-indigo-600 text-white text-xl shadow-sm">
+                                 GABARITO: {q.gabarito}
+                               </div>
+                               <p className="text-justify leading-relaxed text-xl">{formatBold(q.comentario)}</p>
+                             </div>
+                           </details>
+                         </div>
+                       ))}
+                     </div>
+                   </section>
+                )}
+
+                {currentData.planoRevisao && currentData.planoRevisao.length > 0 && (
+                   <section className="space-y-8 mt-16 bg-gradient-to-br from-slate-900 to-[#1B365D] text-white p-10 md:p-14 rounded-3xl shadow-2xl relative overflow-hidden">
+                     <div className="absolute -bottom-10 -right-10 opacity-10">
+                       <Brain size={300} />
+                     </div>
+                     <h3 className="text-3xl font-black mb-10 uppercase tracking-widest flex items-center gap-3 pb-4 border-b-4 border-indigo-400 w-max relative z-10 text-indigo-300">
+                       <Database size={32} /> 9. Plano de Revisão Ativa
+                     </h3>
+                     <ul className="list-disc ml-8 space-y-6 marker:text-indigo-400 relative z-10 text-xl text-slate-200">
+                       {currentData.planoRevisao.map((rev, idx) => (
+                         <li key={idx} className="pl-4">
+                           <span className="font-medium leading-relaxed text-justify">{formatBold(rev)}</span>
+                         </li>
+                       ))}
+                     </ul>
+                   </section>
                 )}
 
                 {/* Fake Footer / Página */}

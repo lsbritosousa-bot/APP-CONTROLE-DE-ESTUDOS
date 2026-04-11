@@ -221,23 +221,21 @@ export const generateStructuredKnowledge = async (
   const model = "gemini-2.5-flash";
 
   const prompt = `
-Você é um Arquiteto de Conteúdo para Concursos Públicos (estilo "Projeto Missão"). 
-Seu trabalho é pegar o "TEXTO BRUTO" ou as "IMAGENS" e produzir/atualizar um Material Estruturado, focado em ALTA RETENÇÃO VISUAL E SUCINTO.
+Você é um DOUTRINADOR JURÍDICO SÊNIOR e MENTOR ACADÊMICO. 
+Sua função é gerar resumos de estudos estruturados com ALTA DENSIDADE TÉCNICA E ACADÊMICA a partir de textos brutos, recortes de lei, prints ou frases.
 
-REGRAS DE FORMATAÇÃO "MISSÃO" INEGOCIÁVEIS:
-1. BLOCOS CURTOS ("FICHAS"): É estritamente proibido usar parágrafos longos ou "textos densos" narrativos. TODO CONCEITO deve ser quebrado em "Fichas" temáticas (um título/tópico curto + definição direta de no máximo 3 a 4 linhas).
-2. MNEMÔNICOS: Sempre que identificar uma lista de itens, requisitos constitucionais ou princípios, crie um Acrônimo/Mnemônico forte para o candidato decorar, e forneça uma "frase ativadora" das letras (Ex: "PODC -> Pode Ser!").
-3. ALERTAS DE CORTE: Toda pegadinha, exceção jurisprudencial, ou prazo fatal não deve ficar perdido no meio do texto. Puxe e agrupe-os em "Alertas Especiais" separados (com tipo IMPORTANTE, LEMBRE-SE ou ATENÇÃO).
-4. ESQUEMAS HIERÁRQUICOS: Quando for útil dividir ou comparar, no campo "esquemas" crie árvores de chaves (O campo Pai ligado a um array de Filhos) que permitam desenhar diagramas indentados.
-5. GRIFE COMPULSIVAMENTE: Use \`**palavra**\` exaustivamente para criar contraste tático visual (grifar prazos, excessões, verbos, e conjunções).
+DIRETRIZES FUNDAMENTAIS DO SEU MÉTODO:
+1. COMPLEMENTAÇÃO AUTOMÁTICA: Se o acadêmico enviar apenas o número de um artigo (ex: "Art. 5º, XLII") ou uma frase isolada, VOCÊ TEM OBRIGAÇÃO DE BUSCAR, TRANSCREVER a literalidade da lei associada, injetar a doutrina majoritária daquele tema e elencar a jurisprudência atualizada dos tribunais superiores (STF/STJ) a respeito. Não seja preguiçoso.
+2. DENSIDADE TÉCNICA: Abandone o estilo de "dicas genéricas". Adote terminologia jurídica precisa e linguagem acadêmica sofisticada. Seu material final tem que ser 100% autossuficiente. O usuário não deve precisar ler um livro PDF para revisar esse tópico.
+3. PARETO 80/20: Separe a gordura daquilo que cai em avaliações de alto desempenho e concursos difíceis. Foque a extração inicial no "cerne" da questão jurídica.
+4. INTEGRAÇÃO CUMULATIVA: Se já existir conteúdo na "BASE EXISTENTE", faça o 'merge' (fusão) orgânica, elevando o nível, expandindo tabelas e jurisprudência, sem nunca perder o patrimônio intelectual que já estava consolidado no documento antigo. Atualize, não destrua.
 
-FORMATO ACUMULATIVO:
-Se existir uma "BASE DE CONHECIMENTO EXISTENTE" abaixo, preserve suas ideias essenciais, integre o NOVO material com extrema organização sem excluir os velhos resumos.
+Gere o seu retorno *ESTRITAMENTE* neste padrão JSON validando 9 PILARES DE RETENÇÃO (Crie conteúdo abrangente para preencher cada um deles de forma rica):
 
 BASE DE CONHECIMENTO EXISTENTE:
-${existingKnowledge ? JSON.stringify(existingKnowledge, null, 2) : "Nenhuma base anterior. Crie a base primária do zero a partir dos novos dados."}
+${existingKnowledge ? JSON.stringify(existingKnowledge, null, 2) : "Nenhuma base anterior. Crie a primária do zero a partir dos novos dados."}
 
-NOVA INFORMAÇÃO (TEXTO E IMAGENS):
+NOVA INFORMAÇÃO FORNECIDA:
 ${newText || "Nenhum texto adicional."}
 `;
 
@@ -267,83 +265,71 @@ ${newText || "Nenhum texto adicional."}
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            visaoGeral: {
+            nucleoEssencial: {
               type: Type.OBJECT,
               properties: {
                 fichas: {
                    type: Type.ARRAY,
                    items: { type: Type.OBJECT, properties: { titulo: { type: Type.STRING }, definicaoCurta: { type: Type.STRING } }, required: ["titulo", "definicaoCurta"] }
-                },
-                textoDenso: { type: Type.STRING },
-                divergencias: { type: Type.STRING },
-                feynman: { type: Type.STRING }
+                }
               },
-              required: ["fichas", "divergencias", "feynman"]
+              required: ["fichas"]
             },
-            alertasEspeciais: {
-              type: Type.ARRAY,
-              items: { type: Type.OBJECT, properties: { tipo: { type: Type.STRING }, texto: { type: Type.STRING } }, required: ["tipo", "texto"] }
+            analiseDoutrinaria: {
+              type: Type.OBJECT,
+              properties: {
+                 texto: { type: Type.STRING },
+                 divergencias: { type: Type.STRING }
+              },
+              required: ["texto", "divergencias"]
             },
-            mnemonicos: {
-              type: Type.ARRAY,
-              items: { type: Type.OBJECT, properties: { acronimo: { type: Type.STRING }, significado: { type: Type.STRING }, fraseAtivadora: { type: Type.STRING } }, required: ["acronimo", "significado", "fraseAtivadora"] }
-            },
-            esquemas: {
+            quadrosSinoticos: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
                   titulo: { type: Type.STRING },
-                  hierarquia: { 
-                     type: Type.ARRAY, 
-                     items: { type: Type.OBJECT, properties: { pai: { type: Type.STRING }, filhos: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ["pai", "filhos"] }
-                  },
-                  headers: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  rows: { type: Type.ARRAY, items: { type: Type.ARRAY, items: { type: Type.STRING } } }
+                  comparativo: { 
+                     type: Type.OBJECT, 
+                     properties: { headers: { type: Type.ARRAY, items: { type: Type.STRING } }, rows: { type: Type.ARRAY, items: { type: Type.ARRAY, items: { type: Type.STRING } } } }, required: ["headers", "rows"] 
+                  }
                 },
-                required: ["titulo"]
+                required: ["titulo", "comparativo"]
               }
             },
-            baseLegal: {
+            literalidadeBaseLegal: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
                   artigo: { type: Type.STRING },
                   texto: { type: Type.STRING },
-                  comentario: { type: Type.STRING },
-                  feynman: { type: Type.STRING }
+                  comentario: { type: Type.STRING }
                 },
-                required: ["artigo", "texto", "comentario", "feynman"]
+                required: ["artigo", "texto", "comentario"]
               }
             },
-            jurisprudencia: {
+            jurisprudenciaSumulas: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
                 properties: {
                   origem: { type: Type.STRING },
                   tese: { type: Type.STRING },
-                  texto: { type: Type.STRING },
-                  feynman: { type: Type.STRING }
+                  texto: { type: Type.STRING }
                 },
-                required: ["origem", "tese", "texto", "feynman"]
+                required: ["origem", "tese", "texto"]
               }
             },
-            pegadinhas: { type: Type.ARRAY, items: { type: Type.STRING } },
-            faq: {
+            puloDoGatoPegadinhas: {
               type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  pergunta: { type: Type.STRING },
-                  resposta: { type: Type.STRING }
-                },
-                required: ["pergunta", "resposta"]
-              }
+              items: { type: Type.OBJECT, properties: { tipo: { type: Type.STRING }, texto: { type: Type.STRING } }, required: ["tipo", "texto"] }
             },
-            sintese: { type: Type.ARRAY, items: { type: Type.STRING } },
-            estudoAtivo: {
+            metodoFeynman: { 
+              type: Type.ARRAY, 
+              items: { type: Type.OBJECT, properties: { conceito: { type: Type.STRING }, analogiaSimplificada: { type: Type.STRING } }, required: ["conceito", "analogiaSimplificada"] } 
+            },
+            questoesFixacao: {
               type: Type.ARRAY,
               items: {
                 type: Type.OBJECT,
@@ -355,11 +341,12 @@ ${newText || "Nenhum texto adicional."}
                 },
                 required: ["enunciado", "alternativas", "gabarito", "comentario"]
               }
-            }
+            },
+            planoRevisao: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
           required: [
-            "visaoGeral", "esquemas", "baseLegal", "jurisprudencia",
-            "pegadinhas", "faq", "sintese", "estudoAtivo"
+            "nucleoEssencial", "analiseDoutrinaria", "quadrosSinoticos", "literalidadeBaseLegal", 
+            "jurisprudenciaSumulas", "puloDoGatoPegadinhas", "metodoFeynman", "questoesFixacao", "planoRevisao"
           ]
         }
       }

@@ -68,7 +68,8 @@ export interface KnowledgeDiscipline {
 }
 
 export interface StructuredKnowledgeResult {
-  visaoGeral: {
+  // --- Retrocompatibilidade (Estilo Antigo) ---
+  visaoGeral?: {
     fichas?: { titulo: string; definicaoCurta: string }[]; // Novo formato "Missão"
     textoDenso?: string; // Mantido para retrocompatibilidade
     divergencias?: string;
@@ -82,25 +83,60 @@ export interface StructuredKnowledgeResult {
     headers?: string[]; // Mantido para retrocompatibilidade
     rows?: string[][]; // Mantido para retrocompatibilidade
   }[];
-  baseLegal: {
+  baseLegal?: {
     artigo: string;
     texto: string;
     comentario: string;
     feynman: string;
   }[];
-  jurisprudencia: {
+  jurisprudencia?: {
     origem: string;
     tese: string;
     texto: string;
     feynman: string;
   }[];
-  pegadinhas: string[];
-  faq: { pergunta: string; resposta: string }[];
-  sintese: string[];
-  estudoAtivo: {
+  pegadinhas?: string[];
+  faq?: { pergunta: string; resposta: string }[];
+  sintese?: string[];
+  estudoAtivo?: {
     enunciado: string;
     alternativas: string[];
     gabarito: string;
     comentario: string;
   }[];
+
+  // --- Novos 9 Pilares (Doutrinador Jurídico Sênior) ---
+  nucleoEssencial?: {
+    fichas: { titulo: string; definicaoCurta: string }[];
+  };
+  analiseDoutrinaria?: {
+    texto: string;
+    divergencias: string;
+  };
+  quadrosSinoticos?: {
+    titulo: string;
+    comparativo: {
+      headers: string[];
+      rows: string[][];
+    };
+  }[];
+  literalidadeBaseLegal?: {
+    artigo: string;
+    texto: string;
+    comentario: string;
+  }[];
+  jurisprudenciaSumulas?: {
+    origem: string;
+    tese: string;
+    texto: string;
+  }[];
+  puloDoGatoPegadinhas?: { tipo: 'IMPORTANTE' | 'LEMBRE-SE' | 'ATENÇÃO'; texto: string }[];
+  metodoFeynman?: { conceito: string; analogiaSimplificada: string }[];
+  questoesFixacao?: {
+    enunciado: string;
+    alternativas: string[];
+    gabarito: string;
+    comentario: string;
+  }[];
+  planoRevisao?: string[];
 }
