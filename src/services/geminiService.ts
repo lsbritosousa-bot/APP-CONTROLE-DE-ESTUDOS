@@ -167,17 +167,15 @@ export const generateStructuredKnowledge = async (
   const model = "gemini-2.5-flash";
 
   const prompt = `
-Você é um Desenvolvedor Full-Stack Senior e Arquiteto de Conteúdo para Concursos Públicos. Seu objetivo é processar recortes de questões, textos de lei, jurisprudência, doutrina e/ou imagens e retornar um material de estudo ESTRUTURADO, Autossuficiente, Denso e Definitivo.
+Você é um Desenvolvedor Senior e Arquiteto de Conteúdo para Concursos. Seu objetivo é processar recortes de questões, textos de lei, jurisprudência, doutrina e/ou imagens e retornar um material de estudo ESTRUTURADO, Autossuficiente e SUCINTO (vá direto ao ponto e não prolongue onde não for necessário).
+
+REQUISITOS ESTÉTICOS INEGOCIÁVEIS:
+1. GRIFE COM NEGRITO E AVISOS TODAS AS PALAVRAS-CHAVE: Use \`**palavra**\` para negritar exaustivamente prazos, verbos principais, ressalvas e exceções em todos os textos de resposta para que o aluno bata o olho e memorize no ato.
 
 ATENÇÃO AO MODO ACUMULATIVO:
-Se houver uma "BASE DE CONHECIMENTO EXISTENTE" abaixo, seu trabalho é LER os itens novos (NOVA INFORMAÇÃO), combinar os dados antigos com os novos, expandir o que for necessário, e retornar a Base de Dados COMPLETAMENTE ATUALIZADA no formato de saída. Não exclua os resumos anteriores, ACUMULE E ORGANIZE.
+Se houver uma "BASE DE CONHECIMENTO EXISTENTE" abaixo, seu trabalho é LER os itens novos (NOVA INFORMAÇÃO), combinar os dados antigos com os novos, expandir o que for necessário, e retornar a Base de Dados ATUALIZADA no formato de saída. Não exclua os resumos anteriores, ACUMULE E ORGANIZE.
 
-DIRETRIZES TÉCNICAS:
-1. Exaustividade Absoluta (nível doutrinário).
-2. Método de Feynman: Em todos os campos "feynman" requeridos, inclua analogias da vida real.
-3. Pensamento Comparativo e Esquemas.
-
-O formato de saída deve ser ESTRITAMENTE o JSON exigido pela API. Retorne TODOS os campos (Visão Geral, Esquemas, Mapa Mental em formato sereia/mermaid, Base Legal, Jurisprudência, FAQ, Pegadinhas, Estudo Ativo e Flashcards). Mantenha o JSON perfeitamente válido sem marcação adicional além do objeto raiz.
+O formato de saída deve ser ESTRITAMENTE o JSON exigido pela API. Retorne TODOS os campos (Visão Geral, Esquemas, Base Legal, Jurisprudência, FAQ, Pegadinhas, Síntese e Estudo Ativo). Mantenha o JSON perfeitamente válido sem marcação adicional além do objeto raiz.
 
 BASE DE CONHECIMENTO EXISTENTE:
 ${existingKnowledge ? JSON.stringify(existingKnowledge, null, 2) : "Nenhuma base anterior. Crie a base primária do zero a partir dos novos dados."}
@@ -236,7 +234,6 @@ ${newText || "Nenhum texto adicional."}
                 required: ["titulo", "headers", "rows"]
               }
             },
-            mapaMental: { type: Type.STRING, description: "Diagrama Mermaid string válida" },
             baseLegal: {
               type: Type.ARRAY,
               items: {
@@ -288,22 +285,11 @@ ${newText || "Nenhum texto adicional."}
                 },
                 required: ["enunciado", "alternativas", "gabarito", "comentario"]
               }
-            },
-            flashcards: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  frente: { type: Type.STRING },
-                  verso: { type: Type.STRING }
-                },
-                required: ["frente", "verso"]
-              }
             }
           },
           required: [
-            "visaoGeral", "esquemas", "mapaMental", "baseLegal", "jurisprudencia",
-            "pegadinhas", "faq", "sintese", "estudoAtivo", "flashcards"
+            "visaoGeral", "esquemas", "baseLegal", "jurisprudencia",
+            "pegadinhas", "faq", "sintese", "estudoAtivo"
           ]
         }
       }

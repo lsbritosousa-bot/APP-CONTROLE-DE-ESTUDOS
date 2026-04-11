@@ -77,7 +77,6 @@ export interface StructuredKnowledgeResult {
     headers: string[];
     rows: string[][];
   }[];
-  mapaMental: string;
   baseLegal: {
     artigo: string;
     texto: string;
@@ -99,5 +98,4 @@ export interface StructuredKnowledgeResult {
     gabarito: string;
     comentario: string;
   }[];
-  flashcards: { frente: string; verso: string }[];
 }

@@ -15,7 +15,9 @@ import {
   Trash2,
   ChevronRight,
   ImageIcon,
-  X
+  X,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from './AuthProvider';
@@ -38,8 +40,8 @@ export const StructuredKnowledgeBase = () => {
   const [images, setImages] = useState<{file: File, url: string}[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [newDisciplineName, setNewDisciplineName] = useState('');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-  // Sincronizar Disciplinas do Firebase
   useEffect(() => {
     if (!profile) return;
     const q = query(collection(db, 'users', profile.uid, 'knowledge_disciplines'));
@@ -127,22 +129,54 @@ export const StructuredKnowledgeBase = () => {
     }
   };
 
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  const formatBold = (text: string) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} className={theme === 'dark' ? "text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-md mx-0.5 border border-yellow-400/20" : "text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded-md mx-0.5 border border-indigo-200"}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
+
   const currentData = disciplines.find(d => d.id === selectedDiscipline)?.knowledgeData;
+
+  const bgPage = theme === 'dark' ? 'bg-[#0F172A]' : 'bg-slate-100';
+  const bgCard = theme === 'dark' ? 'bg-[#1E293B] shadow-2xl shadow-indigo-900/10' : 'bg-white shadow-xl shadow-slate-200/50';
+  const bgInput = theme === 'dark' ? 'bg-[#0F172A] border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800';
+  const textHeading = theme === 'dark' ? 'text-white' : 'text-slate-900';
+  const textBody = theme === 'dark' ? 'text-slate-200' : 'text-slate-700';
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="space-y-8 min-h-screen bg-slate-100 p-4 md:p-8 rounded-3xl text-gray-800 text-[1.1rem] leading-relaxed font-['Inter']"
+      className={cn("space-y-8 min-h-screen p-4 md:p-8 rounded-3xl text-xl leading-relaxed font-['Inter'] transition-colors duration-500", bgPage, textBody)}
     >
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">Base de Conhecimento Estruturada</h1>
-          <p className="text-slate-600 mt-2 text-lg">Alimente a IA e construa o material perfeito (Cumulativo e Imagens suportadas).</p>
+          <h1 className={cn("text-4xl lg:text-5xl font-black tracking-tight", textHeading)}>Base de Conhecimento</h1>
+          <p className={cn("mt-2 text-xl font-medium", theme === 'dark' ? 'text-slate-400' : 'text-slate-500')}>Recorte, Cole, Acumule. Construa sua doutrina pessoal.</p>
         </div>
-        <div className="flex gap-3">
-           <button className="flex items-center gap-2 bg-white border-2 border-slate-200 text-slate-700 px-5 py-3 rounded-2xl font-bold hover:bg-slate-50 transition-all shadow-sm">
+        <div className="flex flex-wrap gap-3">
+           <button 
+             onClick={toggleTheme}
+             className={cn("flex items-center gap-2 border-2 px-5 py-3 rounded-2xl font-bold transition-all shadow-sm", theme === 'dark' ? 'bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50')}
+           >
+             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />} 
+             {theme === 'dark' ? 'Modo Claro' : 'Modo Foco Noturno'}
+           </button>
+           <button className={cn("flex items-center gap-2 border-2 px-5 py-3 rounded-2xl font-bold transition-all shadow-sm hidden sm:flex", theme === 'dark' ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50')}>
              <Code size={20} /> Salvar HTML
            </button>
            <button className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-600/30">
@@ -151,53 +185,53 @@ export const StructuredKnowledgeBase = () => {
         </div>
       </header>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col xl:flex-row gap-8">
         {/* Menu Lateral */}
-        <aside className="lg:w-1/4 space-y-6">
-          <div className="bg-white p-6 rounded-3xl shadow-xl border-t-8 border-indigo-500">
-            <h2 className="font-bold text-xl mb-4 text-slate-800 flex items-center gap-2">
+        <aside className="xl:w-1/4 space-y-6">
+          <div className={cn("p-6 rounded-3xl border-t-8 border-indigo-500 transition-colors", bgCard)}>
+            <h2 className={cn("font-black text-2xl mb-6 flex items-center gap-3", textHeading)}>
               <Database className="text-indigo-500" /> Disciplinas
             </h2>
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-6">
               <input 
                 type="text" 
                 value={newDisciplineName}
                 onChange={e => setNewDisciplineName(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddDiscipline()}
                 placeholder="Nova disciplina..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 ring-indigo-500/20 text-base"
+                className={cn("w-full border rounded-xl px-4 py-3 outline-none focus:ring-2 ring-indigo-500/20 text-lg font-medium transition-colors", bgInput)}
               />
               <button 
                 onClick={handleAddDiscipline}
-                className="bg-indigo-100 text-indigo-700 p-2 rounded-xl hover:bg-indigo-200 transition-colors"
+                className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/30"
               >
                 <Plus size={24} />
               </button>
             </div>
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
               {disciplines.length === 0 ? (
-                <p className="text-sm text-slate-400 italic">Nenhuma disciplina cadastrada.</p>
+                <p className={cn("text-lg italic font-medium", theme === 'dark' ? 'text-slate-500' : 'text-slate-400')}>Nenhuma disciplina na base.</p>
               ) : (
                 disciplines.map(disc => (
                   <div key={disc.id} className="flex gap-1 group relative">
                     <button
                       onClick={() => setSelectedDiscipline(disc.id)}
                       className={cn(
-                        "w-full text-left px-4 py-3 rounded-2xl transition-all flex justify-between items-center",
+                        "w-full text-left px-5 py-4 rounded-2xl transition-all flex justify-between items-center text-lg font-bold border-2",
                         selectedDiscipline === disc.id 
-                          ? "bg-indigo-600 text-white font-bold shadow-md" 
-                          : "bg-slate-50 hover:bg-slate-100 text-slate-700"
+                          ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/30" 
+                          : theme === 'dark' ? "bg-slate-800/50 border-slate-700/50 hover:bg-slate-700 hover:border-slate-600 text-slate-300" : "bg-slate-50 border-slate-100 hover:bg-slate-100 hover:border-slate-200 text-slate-700"
                       )}
                     >
                       <span className="truncate pr-2">{disc.name}</span>
-                      {selectedDiscipline === disc.id && <ChevronRight size={18} className="flex-shrink-0" />}
+                      {selectedDiscipline === disc.id && <ChevronRight size={20} className="flex-shrink-0" />}
                     </button>
                     <button 
                       onClick={() => handleDeleteDiscipline(disc.id, disc.name)}
-                      className="text-red-500/50 hover:text-red-500 hover:bg-red-50 p-3 rounded-xl absolute right-0 top-0 hidden group-hover:flex items-center h-full transition-colors backdrop-blur-md"
+                      className="text-red-500/50 hover:text-red-500 hover:bg-red-500/10 p-3 rounded-xl absolute right-1 top-1 hidden group-hover:flex items-center bottom-1 transition-colors backdrop-blur-md"
                       title="Apagar Disciplina"
                     >
-                       <Trash2 size={16} />
+                       <Trash2 size={20} />
                     </button>
                   </div>
                 ))
@@ -207,47 +241,47 @@ export const StructuredKnowledgeBase = () => {
         </aside>
 
         {/* Área Principal */}
-        <div className="lg:w-3/4 space-y-8 min-w-0">
+        <div className="xl:w-3/4 space-y-8 min-w-0">
           
           {/* Formulário IA */}
-          <div className="bg-white p-8 rounded-3xl shadow-xl border-t-8 border-indigo-500 relative">
+          <div className={cn("p-8 md:p-10 rounded-3xl border-t-8 border-indigo-500 relative transition-colors", bgCard)}>
              {!selectedDiscipline && (
-                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-3xl">
-                  <p className="font-bold text-slate-500 text-lg">Selecione ou crie uma Disciplina primeiro.</p>
+                <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-md z-10 flex items-center justify-center rounded-3xl">
+                  <p className="font-black text-white text-3xl px-8 py-4 bg-slate-900/80 rounded-2xl shadow-2xl">Selecione ou crie uma Disciplina primeiro.</p>
                 </div>
              )}
              
-             <div className="flex items-center gap-3 mb-4">
-               <Brain size={28} className="text-indigo-600" />
-               <h2 className="text-2xl font-bold text-slate-800">Alimentar Base de Dados</h2>
-               {currentData && <span className="ml-auto px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase tracking-wider">Base Ativa</span>}
+             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+               <div className="flex items-center gap-4">
+                 <div className="bg-indigo-500/10 p-3 rounded-2xl">
+                   <Brain size={36} className="text-indigo-500" />
+                 </div>
+                 <h2 className={cn("text-3xl font-black", textHeading)}>Alimentar a Máquina</h2>
+               </div>
+               {currentData && <span className="px-5 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 text-sm font-black rounded-full uppercase tracking-widest shadow-sm">Base Pronta & Ativa</span>}
              </div>
-             
-             <p className="text-slate-600 mb-6 text-base">
-               Envie textos (leis, doutrina, questões) ou dê <strong>CTRL+V em imagens/prints</strong>. A IA incluirá todo o novo contexto orgulhosamente à essa disciplina sem perder os resumos anteriores.
-             </p>
              
              <textarea 
                value={inputText}
                onChange={(e) => setInputText(e.target.value)}
                onPaste={handlePaste}
-               placeholder="Escreva ou Ctrl+V para colar imagens (ex: print de tabelas, texto da lei)..."
-               className="w-full h-40 bg-slate-50 border-2 border-slate-200 rounded-3xl p-6 outline-none focus:border-indigo-400 focus:ring-4 ring-indigo-500/10 resize-none text-lg transition-all"
+               placeholder="Escreva ou aperte 'Ctrl+V' para colar prints valiosos de questões ou lei seca..."
+               className={cn("w-full h-48 border-2 rounded-3xl p-6 outline-none focus:border-indigo-500 focus:ring-4 ring-indigo-500/20 resize-none text-xl transition-all shadow-inner", bgInput)}
                style={{ fontFamily: 'Inter, sans-serif' }}
              />
 
              {/* Preview de Imagens Coladas */}
              {images.length > 0 && (
-               <div className="mt-4 flex gap-4 flex-wrap">
+               <div className="mt-6 flex gap-4 flex-wrap">
                  <AnimatePresence>
                    {images.map((img, i) => (
                       <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} key={i} className="relative group">
-                         <img src={img.url} alt="preview" className="h-24 w-24 object-cover rounded-2xl shadow-sm border-2 border-slate-200" />
+                         <img src={img.url} alt="preview" className="h-32 w-32 object-cover rounded-2xl shadow-md border-4 border-slate-700/20" />
                          <button 
                            onClick={() => handleRemoveImage(i)}
-                           className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                           className="absolute -top-3 -right-3 bg-red-600 text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 hover:scale-110"
                          >
-                           <X size={14} />
+                           <X size={16} />
                          </button>
                       </motion.div>
                    ))}
@@ -255,57 +289,59 @@ export const StructuredKnowledgeBase = () => {
                </div>
              )}
              
-             <div className="mt-6 flex items-center justify-between">
-               <div className="text-sm text-slate-500 flex items-center gap-2">
-                 <ImageIcon size={18} /> As imagens coladas entram no contexto de leitura.
+             <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-6">
+               <div className={cn("text-base md:text-lg font-medium flex items-center gap-3", theme === 'dark' ? 'text-slate-400' : 'text-slate-500')}>
+                 <ImageIcon size={24} className={theme === 'dark' ? 'text-slate-500' : 'text-slate-400'} /> As imagens coladas são convertidas em inteligência doutrinária.
                </div>
                <button 
                  onClick={handleGenerate}
                  disabled={isGenerating || (!inputText.trim() && images.length === 0)}
-                 className="bg-indigo-600 text-white font-bold text-lg px-8 py-4 rounded-3xl hover:bg-indigo-700 shadow-xl shadow-indigo-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                 className="w-full md:w-auto bg-indigo-600 text-white font-black text-xl px-10 py-5 rounded-3xl hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98] shadow-2xl shadow-indigo-600/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-4"
                >
                  {isGenerating ? (
                    <>
                     <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
-                      <Brain size={24} />
+                      <Brain size={28} />
                     </motion.div>
-                    Agregando Base...
+                    Agregando à Base...
                    </>
                  ) : (
                    <>
-                    <Brain size={24} /> Consolidar na Base
+                    <Brain size={28} /> Consolidar Conhecimento
                    </>
                  )}
                </button>
              </div>
           </div>
 
-          {/* Resultados - Os 11 Cards com Dados Reais */}
+          {/* Resultados - Diretos e Sucintos */}
           {currentData && (
             <motion.div 
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-10"
+              className="space-y-12"
             >
                {/* Card 1: Visão Geral */}
-               <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-slate-800">
-                 <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                   <Target className="text-slate-800" /> 1. Visão Geral & Divergências
+               <section className={cn("p-10 rounded-3xl border-t-[10px] border-slate-800 transition-colors", bgCard)}>
+                 <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                   <Target className="text-slate-500" size={32} /> 1. Visão Geral (O Cerne)
                  </h3>
-                 <div className="prose prose-slate max-w-none text-[1.1rem]">
-                   <p className="mb-6 font-medium whitespace-pre-wrap">{currentData.visaoGeral.textoDenso}</p>
+                 <div className="prose prose-lg max-w-none space-y-6">
+                   <p className={cn("font-medium whitespace-pre-wrap leading-loose", textBody)}>
+                      {formatBold(currentData.visaoGeral.textoDenso)}
+                   </p>
                    {currentData.visaoGeral.divergencias && (
-                      <div className="mb-6 p-6 bg-slate-50 border-l-4 border-slate-400 rounded-r-xl">
-                        <p className="font-bold mb-2">Divergências Doutrinárias/Jurisprudenciais:</p>
-                        <p>{currentData.visaoGeral.divergencias}</p>
+                      <div className={cn("p-8 border-l-[6px] border-slate-500 rounded-r-2xl", theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50')}>
+                        <p className={cn("font-black mb-4 text-xl", textHeading)}>Divergências Doutrinárias/Jurisprudenciais:</p>
+                        <p className="leading-relaxed">{formatBold(currentData.visaoGeral.divergencias)}</p>
                       </div>
                    )}
                    {currentData.visaoGeral.feynman && (
-                     <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-200 mt-8">
-                       <p className="font-bold text-emerald-800 flex items-center gap-2 mb-3">
-                         <Lightbulb size={24} /> Método de Feynman (Simplificando)
+                     <div className={cn("rounded-2xl p-8 border-2 mt-10", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
+                       <p className={cn("font-black flex items-center gap-3 mb-4 text-xl", theme === 'dark' ? 'text-emerald-400' : 'text-emerald-800')}>
+                         <Lightbulb size={28} /> Método de Feynman (Para fixar agora)
                        </p>
-                       <p className="text-emerald-900 italic">"{currentData.visaoGeral.feynman}"</p>
+                       <p className={cn("italic text-xl leading-relaxed font-medium", theme === 'dark' ? 'text-emerald-200' : 'text-emerald-900')}>"{formatBold(currentData.visaoGeral.feynman)}"</p>
                      </div>
                    )}
                  </div>
@@ -313,25 +349,25 @@ export const StructuredKnowledgeBase = () => {
 
                {/* Card 2: Esquemas */}
                {currentData.esquemas && currentData.esquemas.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-blue-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <Database className="text-blue-500" /> 2. Esquematizando
+                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-blue-500 transition-colors", bgCard)}>
+                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                     <Database className="text-blue-500" size={32} /> 2. Esquemas e Tabelas Focais
                    </h3>
-                   <div className="space-y-8">
+                   <div className="space-y-10">
                      {currentData.esquemas.map((esq, idx) => (
                        <div key={idx}>
-                         {esq.titulo && <h4 className="font-bold text-lg mb-4">{esq.titulo}</h4>}
-                         <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-                            <table className="table-auto w-full text-left">
-                              <thead className="bg-slate-50 border-b border-slate-200">
+                         {esq.titulo && <h4 className={cn("font-black text-2xl mb-6", textHeading)}>{formatBold(esq.titulo)}</h4>}
+                         <div className={cn("overflow-x-auto rounded-3xl border-2", theme === 'dark' ? 'border-slate-700' : 'border-slate-200')}>
+                            <table className="table-auto w-full text-left min-w-[600px]">
+                              <thead className={theme === 'dark' ? 'bg-slate-800/80 border-b-2 border-slate-700 text-slate-300' : 'bg-slate-100 border-b-2 border-slate-200 text-slate-700'}>
                                 <tr>
-                                  {esq.headers.map((h, i) => <th key={i} className="p-4 font-bold text-slate-700">{h}</th>)}
+                                  {esq.headers.map((h, i) => <th key={i} className="p-6 font-black text-lg">{formatBold(h)}</th>)}
                                 </tr>
                               </thead>
-                              <tbody>
+                              <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                                 {esq.rows.map((row, rI) => (
-                                  <tr key={rI} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
-                                    {row.map((cell, cI) => <td key={cI} className="p-4 text-slate-600">{cell}</td>)}
+                                  <tr key={rI} className={cn("transition-colors", theme === 'dark' ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50')}>
+                                    {row.map((cell, cI) => <td key={cI} className="p-6 text-lg">{formatBold(cell)}</td>)}
                                   </tr>
                                 ))}
                               </tbody>
@@ -343,41 +379,24 @@ export const StructuredKnowledgeBase = () => {
                  </section>
                )}
 
-               {/* Card 3: Mapa Mental */}
-               {currentData.mapaMental && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-purple-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <Brain className="text-purple-500" /> 3. Mapa Mental
-                   </h3>
-                   <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 flex flex-col items-center justify-center min-h-[150px]">
-                     <code className="text-sm font-mono text-slate-500 bg-slate-200 px-3 py-1 rounded mb-4">Código Mermaid Gerado:</code>
-                     <pre className="w-full text-left bg-white p-4 rounded-xl border border-slate-200 overflow-x-auto text-sm text-slate-600">
-                        {currentData.mapaMental}
-                     </pre>
-                   </div>
-                 </section>
-               )}
-
-               {/* Card 4: Base Legal */}
+               {/* Card 3: Base Legal */}
                {currentData.baseLegal && currentData.baseLegal.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-yellow-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <Scale className="text-yellow-500" /> 4. Base Legal Comentada
+                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-yellow-500/80 transition-colors", bgCard)}>
+                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                     <Scale className="text-yellow-500" size={32} /> 3. Base Legal Exaustiva
                    </h3>
-                   <div className="space-y-8">
+                   <div className="space-y-10">
                      {currentData.baseLegal.map((lei, idx) => (
-                       <div key={idx} className="space-y-4">
-                         <div className="bg-yellow-50/50 p-6 rounded-2xl border-l-4 border-yellow-400">
-                            <p className="font-bold text-yellow-900 mb-2">{lei.artigo}</p>
-                            <p className="text-slate-800 leading-relaxed italic">"{lei.texto}"</p>
+                       <div key={idx} className="space-y-6">
+                         <div className={cn("p-8 rounded-2xl border-l-[8px]", theme === 'dark' ? 'bg-yellow-500/10 border-yellow-500/80' : 'bg-yellow-50/50 border-yellow-400')}>
+                            <p className={cn("font-black text-2xl mb-4", theme === 'dark' ? 'text-yellow-400' : 'text-yellow-900')}>{formatBold(lei.artigo)}</p>
+                            <p className={cn("leading-relaxed italic text-xl", theme === 'dark' ? 'text-slate-300' : 'text-slate-800')}>"{formatBold(lei.texto)}"</p>
                          </div>
-                         <p className="text-slate-700 font-medium">Comentário: {lei.comentario}</p>
+                         <p className={cn("font-medium text-lg leading-relaxed px-2", textBody)}><strong className={theme === 'dark' ? 'text-white' : 'text-slate-900'}>Comentário Feroz:</strong> {formatBold(lei.comentario)}</p>
                          {lei.feynman && (
-                           <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-200">
-                             <p className="font-bold text-emerald-800 flex items-center gap-2 mb-3">
-                               <Lightbulb size={24} /> Visão Feynman
-                             </p>
-                             <p className="text-emerald-900 italic">"{lei.feynman}"</p>
+                           <div className={cn("rounded-2xl p-6 border-2 mx-2", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
+                             <p className={cn("font-black flex items-center gap-2 mb-2 text-lg", theme === 'dark' ? 'text-emerald-400' : 'text-emerald-800')}>💡 Analogia / Feynman</p>
+                             <p className={cn("italic text-lg font-medium", theme === 'dark' ? 'text-emerald-200' : 'text-emerald-900')}>"{formatBold(lei.feynman)}"</p>
                            </div>
                          )}
                        </div>
@@ -386,23 +405,23 @@ export const StructuredKnowledgeBase = () => {
                  </section>
                )}
 
-               {/* Card 5: Jurisprudência */}
+               {/* Card 4: Jurisprudência */}
                {currentData.jurisprudencia && currentData.jurisprudencia.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-red-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <AlertTriangle className="text-red-500" /> 5. Doutrina e Jurisprudência
+                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-red-500 transition-colors", bgCard)}>
+                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                     <AlertTriangle className="text-red-500" size={32} /> 4. Doutrina e Jurisprudência
                    </h3>
-                   <div className="space-y-8">
+                   <div className="space-y-10">
                      {currentData.jurisprudencia.map((jur, idx) => (
-                       <div key={idx} className="space-y-4">
-                         <div className="bg-red-50 p-6 rounded-2xl border border-red-200 relative overflow-hidden">
-                           <div className="absolute top-0 right-0 bg-red-500 text-white font-bold text-xs px-3 py-1 pb-2 rounded-bl-xl">{jur.origem}</div>
-                           <p className="font-bold text-red-900 mt-2 mb-3">{jur.tese}</p>
-                           <p className="text-red-800 leading-relaxed">{jur.texto}</p>
+                       <div key={idx} className="space-y-6">
+                         <div className={cn("p-8 rounded-3xl border-2 relative overflow-hidden", theme === 'dark' ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200')}>
+                           <div className="absolute top-0 right-0 bg-red-600 text-white font-black text-sm px-6 py-2 pb-3 rounded-bl-3xl shadow-md tracking-wider uppercase">{jur.origem}</div>
+                           <p className={cn("font-black text-2xl mt-4 mb-4", theme === 'dark' ? 'text-red-400' : 'text-red-900')}>{formatBold(jur.tese)}</p>
+                           <p className={cn("leading-relaxed text-xl", theme === 'dark' ? 'text-red-200/80' : 'text-red-900/80')}>{formatBold(jur.texto)}</p>
                          </div>
                          {jur.feynman && (
-                           <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-200 mt-2">
-                             <p className="text-emerald-900 italic font-medium">💡 Exemplo prático: "{jur.feynman}"</p>
+                           <div className={cn("rounded-2xl p-6 border-2 mx-2", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
+                             <p className={cn("italic font-bold text-xl", theme === 'dark' ? 'text-emerald-300' : 'text-emerald-900')}>🎯 Entendimento Supremo: "{formatBold(jur.feynman)}"</p>
                            </div>
                          )}
                        </div>
@@ -411,74 +430,83 @@ export const StructuredKnowledgeBase = () => {
                  </section>
                )}
 
-               {/* Card 6: Pegadinhas */}
+               {/* Card 5: Pegadinhas */}
                {currentData.pegadinhas && currentData.pegadinhas.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-orange-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <Target className="text-orange-500" /> 6. Pegadinhas da Banca
+                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-orange-500 transition-colors", bgCard)}>
+                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                     <Target className="text-orange-500" size={32} /> 5. Pegadinhas da Banca (Alarmes)
                    </h3>
-                   <ul className="space-y-4">
+                   <ul className="space-y-6">
                      {currentData.pegadinhas.map((peg, idx) => (
-                       <li key={idx} className="flex items-start gap-4">
-                         <span className="text-orange-500 font-bold block mt-1">⚠️</span>
-                         <p className="text-slate-800">{peg}</p>
+                       <li key={idx} className={cn("flex items-start gap-5 p-6 rounded-2xl border-2", theme === 'dark' ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-100')}>
+                         <span className="text-orange-500 font-bold block text-2xl">🚨</span>
+                         <p className={cn("text-xl leading-relaxed font-medium", textBody)}>{formatBold(peg)}</p>
                        </li>
                      ))}
                    </ul>
                  </section>
                )}
 
-               {/* Card 7: FAQ */}
+               {/* Card 6: FAQ */}
                {currentData.faq && currentData.faq.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-cyan-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <HelpCircle className="text-cyan-500" /> 7. FAQ (Dúvidas Complexas)
+                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-cyan-500 transition-colors", bgCard)}>
+                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                     <HelpCircle className="text-cyan-500" size={32} /> 6. FAQ - Dúvidas Frequentes
                    </h3>
-                   <div className="space-y-4">
+                   <div className="space-y-6">
                      {currentData.faq.map((item, idx) => (
-                       <div key={idx} className="border border-slate-200 rounded-2xl p-6">
-                         <p className="font-bold text-slate-800 text-lg mb-2">P: {item.pergunta}</p>
-                         <p className="text-slate-600">R: {item.resposta}</p>
+                       <div key={idx} className={cn("border-2 rounded-2xl p-8", theme === 'dark' ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-slate-50/50')}>
+                         <p className={cn("font-black text-2xl mb-4", textHeading)}><span className="text-cyan-500 mr-2">Q.</span> {formatBold(item.pergunta)}</p>
+                         <p className={cn("text-xl leading-relaxed", textBody)}><span className="text-cyan-600 dark:text-cyan-400 font-bold mr-2">R.</span> {formatBold(item.resposta)}</p>
                        </div>
                      ))}
                    </div>
                  </section>
                )}
 
-               {/* Card 8: Síntese */}
+               {/* Card 7: Síntese */}
                {currentData.sintese && currentData.sintese.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-pink-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <FileCheck className="text-pink-500" /> 8. Síntese 80/20
+                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-pink-500 transition-colors", bgCard)}>
+                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                     <FileCheck className="text-pink-500" size={32} /> 7. Síntese 80/20 (Revisão Turbo)
                    </h3>
-                   <ul className="list-disc list-inside space-y-3 text-slate-700 font-medium ml-2">
+                   <ul className="space-y-4">
                      {currentData.sintese.map((sint, idx) => (
-                       <li key={idx}>{sint}</li>
+                       <li key={idx} className="flex gap-4">
+                         <span className="text-pink-500 font-black text-2xl mt-1">•</span>
+                         <span className={cn("text-xl font-semibold leading-relaxed", textBody)}>{formatBold(sint)}</span>
+                       </li>
                      ))}
                    </ul>
                  </section>
                )}
 
-               {/* Card 9: Estudo Ativo */}
+               {/* Card 8: Estudo Ativo */}
                {currentData.estudoAtivo && currentData.estudoAtivo.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-lime-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <Lightbulb className="text-lime-500" /> 9. Estudo Ativo (Questões Formadas)
+                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-lime-500 transition-colors", bgCard)}>
+                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                     <Lightbulb className="text-lime-500" size={32} /> 8. Estudo Ativo (Fixação Pura)
                    </h3>
-                   <div className="space-y-6">
+                   <div className="space-y-8">
                      {currentData.estudoAtivo.map((q, idx) => (
-                       <div key={idx} className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                         <p className="font-bold text-slate-800 mb-4 whitespace-pre-wrap">Questão {idx + 1}: {q.enunciado}</p>
-                         <div className="space-y-2 mb-6 ml-2">
+                       <div key={idx} className={cn("p-8 rounded-3xl border-2", theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200')}>
+                         <p className={cn("font-black text-2xl mb-6 whitespace-pre-wrap leading-relaxed", textHeading)}>Questão {idx + 1}: {formatBold(q.enunciado)}</p>
+                         <div className="space-y-4 mb-8 ml-2">
                            {q.alternativas.map((alt, ai) => (
-                             <p key={ai} className="text-slate-600">{['a)','b)','c)','d)','e)'][ai]} {alt}</p>
+                             <div key={ai} className={cn("flex gap-4 p-4 rounded-xl transition-colors", theme === 'dark' ? 'hover:bg-slate-700/50' : 'hover:bg-white border border-transparent hover:border-slate-200')}>
+                               <span className="font-bold text-slate-500 text-lg uppercase">{['a','b','c','d','e'][ai]})</span> 
+                               <span className={cn("text-xl", textBody)}>{formatBold(alt)}</span>
+                             </div>
                            ))}
                          </div>
-                         <details className="bg-white border text-base border-slate-300 rounded-xl p-4 cursor-pointer focus:outline-none">
-                           <summary className="font-bold text-slate-800 outline-none select-none">Mostrar Gabarito e Comentário</summary>
-                           <div className="mt-4 text-slate-700 pt-4 border-t border-slate-200">
-                             <strong>Gabarito Oficial: {q.gabarito}</strong>
-                             <p className="mt-2 text-sm">{q.comentario}</p>
+                         <details className={cn("border-2 rounded-2xl p-6 cursor-pointer focus:outline-none transition-colors", theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200')}>
+                           <summary className={cn("font-black outline-none select-none text-xl flex items-center justify-between", textHeading)}>
+                             Mostrar Gabarito e Comentário 
+                             <span className="text-lime-500 text-2xl">+</span>
+                           </summary>
+                           <div className={cn("mt-6 pt-6 border-t font-medium text-lg", theme === 'dark' ? 'border-slate-700 text-slate-300' : 'border-slate-200 text-slate-700')}>
+                             <div className="inline-block px-4 py-2 bg-lime-500/20 text-lime-600 dark:text-lime-400 rounded-lg font-black text-xl mb-4 border border-lime-500/30">Gabarito: {q.gabarito}</div>
+                             <p className="leading-relaxed">{formatBold(q.comentario)}</p>
                            </div>
                          </details>
                        </div>
@@ -486,29 +514,6 @@ export const StructuredKnowledgeBase = () => {
                    </div>
                  </section>
                )}
-
-               {/* Card 10: Flashcards Anki */}
-               {currentData.flashcards && currentData.flashcards.length > 0 && (
-                 <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-teal-500">
-                   <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                     <Database className="text-teal-500" /> 10. Flashcards para Anki (Exportação)
-                   </h3>
-                   <textarea 
-                     readOnly
-                     className="w-full h-48 bg-slate-800 text-slate-100 font-mono text-sm leading-relaxed rounded-2xl p-6 outline-none resize-none shadow-inner"
-                     value={currentData.flashcards.map(f => `${f.frente};${f.verso}`).join('\n')}
-                   />
-                   <p className="text-sm text-slate-500 mt-3 font-medium">Copie este texto e importe no seu deck do Anki (Campos separados por ponto e vírgula).</p>
-                 </section>
-               )}
-
-               {/* Card 11: Revisão (Fixo na disciplina) */}
-               <section className="bg-white p-10 rounded-3xl shadow-xl border-t-8 border-neutral-800">
-                 <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-3">
-                   <Target className="text-neutral-800" /> 11. Controle Automático
-                 </h3>
-                 <p className="text-slate-600 mb-4">Seu progresso diário nestes flashcards é controlado no Dashboard Geral da disciplina e no Caderno de Erros nativo. Atualizações automáticas realizadas com base na nova leitura de Inteligência Artificial!</p>
-               </section>
 
             </motion.div>
           )}
