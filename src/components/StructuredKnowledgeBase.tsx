@@ -273,17 +273,24 @@ export const StructuredKnowledgeBase = () => {
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
+        const content = part.slice(2, -2);
+        const isExample = content.toUpperCase().includes('EXEMPLO');
+        
         return (
-          <strong key={i} className={theme === 'dark' ? "text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-md mx-0.5 border border-yellow-400/20" : "text-indigo-800 bg-indigo-100 px-2 py-0.5 rounded-md mx-0.5 border border-indigo-200"}>
-            {part.slice(2, -2)}
+          <strong key={i} className={cn(
+            "font-black mx-1",
+            isExample 
+              ? theme === 'dark' ? "text-[#ef4444]" : "text-[#CB1C25]"
+              : theme === 'dark' ? "text-indigo-200" : "text-[#1B365D]"
+          )}>
+            {content}
           </strong>
         );
       }
       return part;
     });
   };
-
-  const currentDisc = disciplines.find(d => d.id === selectedDiscipline);
+const currentDisc = disciplines.find(d => d.id === selectedDiscipline);
   const currentData = (currentDisc?.knowledgeData && selectedTopic) ? currentDisc.knowledgeData[selectedTopic] : null;
 
   const bgPage = theme === 'dark' ? 'bg-[#0F172A]' : 'bg-slate-100';
@@ -521,140 +528,141 @@ export const StructuredKnowledgeBase = () => {
              <motion.div 
                initial={{ opacity: 0, y: 40 }}
                animate={{ opacity: 1, y: 0 }}
-               className="space-y-12"
+               className={cn(
+                 "p-8 md:p-14 lg:p-20 rounded-md shadow-2xl transition-colors md:mx-auto max-w-5xl text-lg leading-loose space-y-12",
+                 theme === 'dark' ? 'bg-[#0f172a] shadow-black/50 text-[#CBD5E1]' : 'bg-white shadow-slate-300 text-[#1B365D]'
+               )}
              >
-                <div className="flex items-center gap-4 px-2">
-                   <h2 className={cn("text-4xl font-black uppercase tracking-tight", textHeading)}>Pasta: <span className="text-indigo-500">{selectedTopic}</span></h2>
-                </div>
+                <header className="border-b-2 pb-6 mb-12 flex items-center justify-between" style={{ borderColor: theme === 'dark' ? '#334155' : '#E2E8F0' }}>
+                   <h2 className={cn("text-3xl font-black uppercase tracking-widest", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                     {selectedTopic}
+                   </h2>
+                </header>
 
-                {/* Card 1: Visão Geral */}
-                <section className={cn("p-10 rounded-3xl border-t-[10px] border-slate-800 transition-colors", bgCard)}>
-                  <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                    <Target className="text-slate-500" size={32} /> 1. Fichas de Identificação
+                {/* 1. Visão Geral */}
+                <section className="space-y-6">
+                  <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                    1. Fichas de Identificação
                   </h3>
 
-                  {/* Renderização dos Alertas Especiais */}
                   {currentData.alertasEspeciais && currentData.alertasEspeciais.length > 0 && (
                     <div className="space-y-4 mb-8">
-                      {currentData.alertasEspeciais.map((alerta, i) => (
-                        <div key={i} className={cn("flex gap-4 items-start p-6 rounded-3xl border-2", theme === 'dark' ? 'bg-yellow-900/20 border-yellow-600/50' : 'bg-yellow-50 border-yellow-300 shadow-[0_4px_20px_rgba(234,179,8,0.15)]')}>
-                          <AlertTriangle className={cn("flex-shrink-0 mt-1", theme === 'dark' ? 'text-yellow-500' : 'text-yellow-600')} size={32} />
-                          <div>
-                            <span className={cn("font-extrabold text-xl block mb-2 uppercase", theme === 'dark' ? 'text-yellow-500' : 'text-yellow-800')}>{alerta.tipo}</span>
-                            <p className={cn("font-medium text-lg", theme === 'dark' ? 'text-yellow-100' : 'text-yellow-900')}>{formatBold(alerta.texto)}</p>
-                          </div>
-                        </div>
-                      ))}
+                       {currentData.alertasEspeciais.map((alerta, i) => (
+                         <div key={i} className="flex gap-4 items-start bg-yellow-500/10 p-6 rounded-sm border-l-4 border-yellow-500">
+                           <AlertTriangle className="flex-shrink-0 text-yellow-500 mt-1" size={28} />
+                           <div>
+                             <span className="font-extrabold text-lg block mb-1 uppercase text-yellow-600 dark:text-yellow-500">{alerta.tipo}</span>
+                             <p className="font-medium text-lg text-yellow-800 dark:text-yellow-200 leading-relaxed">{formatBold(alerta.texto)}</p>
+                           </div>
+                         </div>
+                       ))}
                     </div>
                   )}
 
-                  <div className="prose prose-lg max-w-none space-y-6">
-                    {/* Renderização das Fichas Missão */}
+                  <div className="space-y-6">
                     {currentData.visaoGeral.fichas && currentData.visaoGeral.fichas.length > 0 ? (
-                       <div className="space-y-4">
+                       <ul className="list-disc ml-6 space-y-4 marker:text-[#1B365D] dark:marker:text-slate-400">
                          {currentData.visaoGeral.fichas.map((ficha, i) => (
-                            <div key={i} className={cn("p-6 flex flex-col md:flex-row md:items-center gap-6 rounded-3xl shadow-sm transition-all", theme === 'dark' ? 'bg-slate-800/80 border border-slate-700 hover:border-indigo-500' : 'bg-white border-2 border-slate-100 hover:border-indigo-200')}>
-                               <div className="bg-indigo-600 text-white font-black px-6 py-4 rounded-2xl text-xl flex-shrink-0 md:w-1/3 shadow-lg shadow-indigo-600/20 text-center">
-                                  {formatBold(ficha.titulo)}
-                               </div>
-                               <p className="text-xl md:w-2/3 leading-relaxed">{formatBold(ficha.definicaoCurta)}</p>
-                            </div>
+                            <li key={i} className="pl-2">
+                               <span className={cn("font-black mr-2", theme === 'dark' ? 'text-indigo-400' : 'text-[#1B365D]')}>{formatBold(ficha.titulo)}:</span>
+                               <span>{formatBold(ficha.definicaoCurta)}</span>
+                            </li>
                          ))}
-                       </div>
+                       </ul>
                     ) : (
-                      <p className={cn("font-medium whitespace-pre-wrap leading-loose", textBody)}>
+                      <p className="whitespace-pre-wrap text-justify">
                          {formatBold(currentData.visaoGeral.textoDenso || '')}
                       </p>
                     )}
 
                     {currentData.visaoGeral.divergencias && (
-                       <div className={cn("p-8 border-l-[6px] border-slate-500 rounded-r-2xl mt-8", theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50')}>
-                         <p className={cn("font-black mb-4 text-xl", textHeading)}>Divergências Doutrinárias/Jurisprudenciais:</p>
-                         <p className="leading-relaxed">{formatBold(currentData.visaoGeral.divergencias)}</p>
+                       <div className="mt-8 pl-6 border-l-4 border-slate-300 dark:border-slate-600 ml-2">
+                         <p className="font-black mb-2 italic">Divergências Doutrinárias/Jurisprudenciais:</p>
+                         <p className="text-justify">{formatBold(currentData.visaoGeral.divergencias)}</p>
                        </div>
                     )}
+                    
                     {currentData.visaoGeral.feynman && (
-                      <div className={cn("rounded-2xl p-8 border-2 mt-8", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
-                        <p className={cn("font-black flex items-center gap-3 mb-4 text-xl", theme === 'dark' ? 'text-emerald-400' : 'text-emerald-800')}>
-                          <Lightbulb size={28} /> Método de Feynman (Para fixar agora)
+                      <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-sm">
+                        <p className="font-black flex items-center gap-2 mb-3 text-yellow-600 dark:text-yellow-500">
+                          <Lightbulb size={24} /> Método de Feynman
                         </p>
-                        <p className={cn("italic text-xl leading-relaxed font-medium", theme === 'dark' ? 'text-emerald-200' : 'text-emerald-900')}>"{formatBold(currentData.visaoGeral.feynman)}"</p>
+                        <p className="italic text-justify">"{formatBold(currentData.visaoGeral.feynman)}"</p>
                       </div>
                     )}
                   </div>
                 </section>
 
-                {/* Seção Nova: Mnemônicos Mágicos */}
+                {/* Mnemônicos Mágicos */}
                 {currentData.mnemonicos && currentData.mnemonicos.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-emerald-500 transition-colors bg-gradient-to-br", theme === 'dark' ? 'from-[#1E293B] to-emerald-900/10' : 'from-white to-emerald-50')}>
-                     <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                       <Brain className="text-emerald-500" size={32} /> Mnemônicos Mágicos
+                  <section className="space-y-6">
+                     <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                       Mnemônicos Mágicos
                      </h3>
-                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                     <div className="space-y-8">
                        {currentData.mnemonicos.map((m, i) => (
-                          <div key={i} className="flex flex-col bg-emerald-600 text-white rounded-3xl p-8 shadow-xl shadow-emerald-500/30 transform hover:-translate-y-1 transition-transform">
-                            <h4 className="text-5xl font-black text-emerald-100 text-center mb-6 tracking-widest drop-shadow-md">{m.acronimo}</h4>
-                            <div className="bg-white text-emerald-900 rounded-2xl p-5 font-black text-center text-2xl mb-6 shadow-inner italic">
+                          <div key={i} className="pl-6 border-l-2 border-slate-200 dark:border-slate-700">
+                            <h4 className="text-3xl font-black mb-2 tracking-widest flex items-center gap-3">
+                               <Brain size={28} className={theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'} /> {m.acronimo}
+                            </h4>
+                            <div className="font-bold mb-4 italic opacity-80">
                                "{m.fraseAtivadora}"
                             </div>
-                            <div className="text-lg font-medium leading-loose space-y-2">
+                            <ul className="list-disc ml-6 space-y-2 marker:text-[#1B365D] dark:marker:text-slate-400">
                                {m.significado.split(/[,;]/).map((item, idx) => (
-                                 <div key={idx} className="flex items-center gap-3 bg-emerald-700/50 p-3 rounded-xl border border-emerald-500/30">
-                                    <div className="w-2 h-2 bg-emerald-300 rounded-full flex-shrink-0" />
-                                    <span>{formatBold(item.trim())}</span>
-                                 </div>
+                                 <li key={idx} className="pl-2">
+                                    {formatBold(item.trim())}
+                                 </li>
                                ))}
-                            </div>
+                            </ul>
                           </div>
                        ))}
                      </div>
                   </section>
                 )}
 
-                {/* Card 2: Esquemas */}
+                {/* 2. Esquemas Organizados */}
                 {currentData.esquemas && currentData.esquemas.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-blue-500 transition-colors", bgCard)}>
-                    <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <Database className="text-blue-500" size={32} /> 2. Esquemas Organizados
+                  <section className="space-y-6">
+                    <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                      2. Esquemas Organizados
                     </h3>
                     <div className="space-y-10">
                       {currentData.esquemas.map((esq, idx) => (
                         <div key={idx}>
-                          {esq.titulo && <h4 className={cn("font-black text-2xl mb-6", textHeading)}>{formatBold(esq.titulo)}</h4>}
+                          {esq.titulo && <h4 className="font-black text-xl mb-4 underline decoration-2 underline-offset-4 decoration-slate-300">{formatBold(esq.titulo)}</h4>}
                           
-                          {/* Rendering Hierarquia/Chaves se existir */}
                           {esq.hierarquia && esq.hierarquia.length > 0 ? (
                              <div className="space-y-6">
                                {esq.hierarquia.map((h, i) => (
-                                  <div key={i} className={cn("flex flex-col lg:flex-row items-stretch border-2 rounded-3xl overflow-hidden", theme === 'dark' ? 'border-slate-700' : 'border-slate-200')}>
-                                     <div className={cn("p-6 flex items-center justify-center lg:w-1/3 lg:border-r-2 font-black text-2xl text-center", theme === 'dark' ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-blue-50 border-slate-200 text-blue-900')}>
+                                  <div key={i} className="pl-4">
+                                     <div className="font-black text-xl mb-2 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-current" />
                                         {formatBold(h.pai)}
                                      </div>
-                                     <div className={cn("p-6 flex flex-col justify-center gap-4 lg:w-2/3 bg-transparent")}>
+                                     <ul className="list-disc ml-10 space-y-2 border-l border-slate-200 dark:border-slate-700 pl-4 py-2 marker:text-[#1B365D] dark:marker:text-slate-400">
                                         {h.filhos.map((filho, fIdx) => (
-                                           <div key={fIdx} className={cn("p-4 rounded-2xl flex items-start gap-4 shadow-sm", theme === 'dark' ? 'bg-slate-800/50' : 'bg-white border')}>
-                                              <ChevronRight className="flex-shrink-0 text-blue-500 mt-1" />
-                                              <span className="text-lg leading-relaxed">{formatBold(filho)}</span>
-                                           </div>
+                                           <li key={fIdx}>
+                                              {formatBold(filho)}
+                                           </li>
                                         ))}
-                                     </div>
+                                     </ul>
                                   </div>
                                ))}
                              </div>
                           ) : (
-                            /* Fallback (Retrocompatibilidade) para tabelas se hierarquia nao existir */
                             esq.headers && esq.rows && (
-                              <div className={cn("overflow-x-auto rounded-3xl border-2", theme === 'dark' ? 'border-slate-700' : 'border-slate-200')}>
-                                 <table className="table-auto w-full text-left min-w-[600px]">
-                                   <thead className={theme === 'dark' ? 'bg-slate-800/80 border-b-2 border-slate-700 text-slate-300' : 'bg-slate-100 border-b-2 border-slate-200 text-slate-700'}>
+                              <div className="overflow-x-auto my-6">
+                                 <table className="table-auto w-full text-left border-collapse">
+                                   <thead>
                                      <tr>
-                                       {esq.headers.map((h, i) => <th key={i} className="p-6 font-black text-lg">{formatBold(h)}</th>)}
+                                       {esq.headers.map((h, i) => <th key={i} className="p-4 border-b-2 border-slate-300 dark:border-slate-600 font-black">{formatBold(h)}</th>)}
                                      </tr>
                                    </thead>
                                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
                                      {esq.rows.map((row, rI) => (
-                                       <tr key={rI} className={cn("transition-colors", theme === 'dark' ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50')}>
-                                         {row.map((cell, cI) => <td key={cI} className="p-6 text-lg">{formatBold(cell)}</td>)}
+                                       <tr key={rI}>
+                                         {row.map((cell, cI) => <td key={cI} className="p-4 align-top">{formatBold(cell)}</td>)}
                                        </tr>
                                      ))}
                                    </tbody>
@@ -668,50 +676,47 @@ export const StructuredKnowledgeBase = () => {
                   </section>
                 )}
 
-                {/* Card 3: Base Legal */}
+                {/* 3. Base Legal Exaustiva */}
                 {currentData.baseLegal && currentData.baseLegal.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-yellow-500/80 transition-colors", bgCard)}>
-                    <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <Scale className="text-yellow-500" size={32} /> 3. Base Legal Exaustiva
+                  <section className="space-y-6">
+                    <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                      3. Base Legal Exaustiva
                     </h3>
                     <div className="space-y-10">
                       {currentData.baseLegal.map((lei, idx) => (
-                        <div key={idx} className="space-y-6">
-                          <div className={cn("p-8 rounded-2xl border-l-[8px]", theme === 'dark' ? 'bg-yellow-500/10 border-yellow-500/80' : 'bg-yellow-50/50 border-yellow-400')}>
-                             <p className={cn("font-black text-2xl mb-4", theme === 'dark' ? 'text-yellow-400' : 'text-yellow-900')}>{formatBold(lei.artigo)}</p>
-                             <p className={cn("leading-relaxed italic text-xl", theme === 'dark' ? 'text-slate-300' : 'text-slate-800')}>"{formatBold(lei.texto)}"</p>
-                          </div>
-                          <p className={cn("font-medium text-lg leading-relaxed px-2", textBody)}><strong className={theme === 'dark' ? 'text-white' : 'text-slate-900'}>Comentário Feroz:</strong> {formatBold(lei.comentario)}</p>
-                          {lei.feynman && (
-                            <div className={cn("rounded-2xl p-6 border-2 mx-2", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
-                              <p className={cn("font-black flex items-center gap-2 mb-2 text-lg", theme === 'dark' ? 'text-emerald-400' : 'text-emerald-800')}>💡 Analogia / Feynman</p>
-                              <p className={cn("italic text-lg font-medium", theme === 'dark' ? 'text-emerald-200' : 'text-emerald-900')}>"{formatBold(lei.feynman)}"</p>
-                            </div>
-                          )}
+                        <div key={idx} className="space-y-4">
+                           <p className={cn("font-black text-xl", theme === 'dark' ? 'text-indigo-400' : 'text-[#1B365D]')}>{formatBold(lei.artigo)}</p>
+                           <p className="leading-relaxed italic text-justify opacity-90 pl-6 border-l-2 border-slate-300 dark:border-slate-600">"{formatBold(lei.texto)}"</p>
+                           <p className="font-medium text-justify mt-4"><strong className="font-black">Comentário Feroz:</strong> {formatBold(lei.comentario)}</p>
+                           {lei.feynman && (
+                              <p className="italic text-justify text-indigo-700 dark:text-indigo-300 mt-2 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-sm">
+                                <span className="font-bold text-lg mr-2">🎯 Analóga:</span> "{formatBold(lei.feynman)}"
+                              </p>
+                           )}
                         </div>
                       ))}
                     </div>
                   </section>
                 )}
 
-                {/* Card 4: Jurisprudência */}
+                {/* 4. Doutrina e Jurisprudência */}
                 {currentData.jurisprudencia && currentData.jurisprudencia.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-red-500 transition-colors", bgCard)}>
-                    <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <AlertTriangle className="text-red-500" size={32} /> 4. Doutrina e Jurisprudência
+                  <section className="space-y-6">
+                    <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                      4. Doutrina e Jurisprudência
                     </h3>
                     <div className="space-y-10">
                       {currentData.jurisprudencia.map((jur, idx) => (
-                        <div key={idx} className="space-y-6">
-                          <div className={cn("p-8 rounded-3xl border-2 relative overflow-hidden", theme === 'dark' ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200')}>
-                            <div className="absolute top-0 right-0 bg-red-600 text-white font-black text-sm px-6 py-2 pb-3 rounded-bl-3xl shadow-md tracking-wider uppercase">{jur.origem}</div>
-                            <p className={cn("font-black text-2xl mt-4 mb-4", theme === 'dark' ? 'text-red-400' : 'text-red-900')}>{formatBold(jur.tese)}</p>
-                            <p className={cn("leading-relaxed text-xl", theme === 'dark' ? 'text-red-200/80' : 'text-red-900/80')}>{formatBold(jur.texto)}</p>
+                        <div key={idx} className="space-y-4">
+                          <div className="flex items-center gap-3">
+                             <span className={cn("font-black text-sm px-3 py-1 bg-slate-200 dark:bg-slate-700 uppercase tracking-widest rounded-sm text-[#1B365D] dark:text-slate-200")}>{jur.origem}</span>
+                             <p className={cn("font-black text-xl")}>{formatBold(jur.tese)}</p>
                           </div>
+                          <p className="leading-relaxed text-justify opacity-90">{formatBold(jur.texto)}</p>
                           {jur.feynman && (
-                            <div className={cn("rounded-2xl p-6 border-2 mx-2", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
-                              <p className={cn("italic font-bold text-xl", theme === 'dark' ? 'text-emerald-300' : 'text-emerald-900')}>🎯 Entendimento Supremo: "{formatBold(jur.feynman)}"</p>
-                            </div>
+                             <p className="italic text-justify font-medium pt-2 pl-4 border-l-2 border-slate-300 dark:border-slate-600">
+                               "Entendimento: {formatBold(jur.feynman)}"
+                             </p>
                           )}
                         </div>
                       ))}
@@ -719,83 +724,83 @@ export const StructuredKnowledgeBase = () => {
                   </section>
                 )}
 
-                {/* Card 5: Pegadinhas */}
+                {/* 5. Pegadinhas da Banca */}
                 {currentData.pegadinhas && currentData.pegadinhas.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-orange-500 transition-colors", bgCard)}>
-                    <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <Target className="text-orange-500" size={32} /> 5. Pegadinhas da Banca
+                  <section className="space-y-6">
+                    <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                      5. Pegadinhas da Banca
                     </h3>
-                    <ul className="space-y-6">
+                    <ul className="list-none space-y-4 ml-2">
                       {currentData.pegadinhas.map((peg, idx) => (
-                        <li key={idx} className={cn("flex items-start gap-5 p-6 rounded-2xl border-2", theme === 'dark' ? 'bg-orange-500/5 border-orange-500/10' : 'bg-orange-50 border-orange-100')}>
-                          <span className="text-orange-500 font-bold block text-2xl">🚨</span>
-                          <p className={cn("text-xl leading-relaxed font-medium", textBody)}>{formatBold(peg)}</p>
+                        <li key={idx} className="flex items-start gap-4 p-4 bg-orange-50 dark:bg-orange-950/20 rounded-sm">
+                          <span className="text-xl">🚨</span>
+                          <p className="font-medium text-justify text-orange-900 dark:text-orange-200">{formatBold(peg)}</p>
                         </li>
                       ))}
                     </ul>
                   </section>
                 )}
 
-                {/* Card 6: FAQ */}
+                {/* 6. FAQ */}
                 {currentData.faq && currentData.faq.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-cyan-500 transition-colors", bgCard)}>
-                    <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <HelpCircle className="text-cyan-500" size={32} /> 6. FAQ
+                  <section className="space-y-6">
+                    <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                      6. FAQ
                     </h3>
                     <div className="space-y-6">
                       {currentData.faq.map((item, idx) => (
-                        <div key={idx} className={cn("border-2 rounded-2xl p-8", theme === 'dark' ? 'border-slate-700 bg-slate-800/30' : 'border-slate-200 bg-slate-50/50')}>
-                          <p className={cn("font-black text-2xl mb-4", textHeading)}><span className="text-cyan-500 mr-2">Q.</span> {formatBold(item.pergunta)}</p>
-                          <p className={cn("text-xl leading-relaxed", textBody)}><span className="text-cyan-600 dark:text-cyan-400 font-bold mr-2">R.</span> {formatBold(item.resposta)}</p>
+                        <div key={idx} className="space-y-2">
+                          <p className="font-black text-lg"><span className={cn("mr-2", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>Q.</span> {formatBold(item.pergunta)}</p>
+                          <p className="text-justify"><span className="font-bold mr-2 opacity-60">R.</span> {formatBold(item.resposta)}</p>
                         </div>
                       ))}
                     </div>
                   </section>
                 )}
 
-                {/* Card 7: Síntese */}
+                {/* 7. Síntese 80/20 */}
                 {currentData.sintese && currentData.sintese.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-pink-500 transition-colors", bgCard)}>
-                    <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <FileCheck className="text-pink-500" size={32} /> 7. Síntese 80/20
+                  <section className="space-y-6">
+                    <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                      7. Síntese 80/20
                     </h3>
-                    <ul className="space-y-4">
+                    <ul className="list-disc ml-6 space-y-4 marker:text-[#1B365D] dark:marker:text-slate-400">
                       {currentData.sintese.map((sint, idx) => (
-                        <li key={idx} className="flex gap-4">
-                          <span className="text-pink-500 font-black text-2xl mt-1">•</span>
-                          <span className={cn("text-xl font-semibold leading-relaxed", textBody)}>{formatBold(sint)}</span>
+                        <li key={idx} className="pl-2">
+                          <span className="font-medium text-justify">{formatBold(sint)}</span>
                         </li>
                       ))}
                     </ul>
                   </section>
                 )}
 
-                {/* Card 8: Estudo Ativo */}
+                {/* 8. Estudo Ativo */}
                 {currentData.estudoAtivo && currentData.estudoAtivo.length > 0 && (
-                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-lime-500 transition-colors", bgCard)}>
-                    <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <Lightbulb className="text-lime-500" size={32} /> 8. Estudo Ativo
+                  <section className="space-y-6">
+                    <h3 className={cn("text-2xl font-black mb-6 uppercase tracking-wider", theme === 'dark' ? 'text-[#EF4444]' : 'text-[#CB1C25]')}>
+                      8. Estudo Ativo
                     </h3>
-                    <div className="space-y-8">
+                    <div className="space-y-12">
                       {currentData.estudoAtivo.map((q, idx) => (
-                        <div key={idx} className={cn("p-8 rounded-3xl border-2", theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200')}>
-                          <p className={cn("font-black text-2xl mb-6 whitespace-pre-wrap leading-relaxed", textHeading)}>Questão {idx + 1}: {formatBold(q.enunciado)}</p>
-                          <div className="space-y-4 mb-8 ml-2">
+                        <div key={idx} className="space-y-6">
+                          <p className="font-black text-xl text-justify">Questão {idx + 1}: <span className="font-medium">{formatBold(q.enunciado)}</span></p>
+                          <div className="space-y-3 ml-4">
                             {q.alternativas.map((alt, ai) => (
-                              <div key={ai} className={cn("flex gap-4 p-4 rounded-xl transition-colors", theme === 'dark' ? 'hover:bg-slate-700/50' : 'hover:bg-white border border-transparent hover:border-slate-200')}>
-                                <span className="font-bold text-slate-500 text-lg uppercase">{['a','b','c','d','e'][ai]})</span> 
-                                <span className={cn("text-xl", textBody)}>{formatBold(alt)}</span>
+                              <div key={ai} className="flex gap-4">
+                                <span className="font-bold opacity-60 uppercase w-6">{['a','b','c','d','e'][ai]})</span> 
+                                <span className="text-justify">{formatBold(alt)}</span>
                               </div>
                             ))}
                           </div>
-                          <details className={cn("border-2 rounded-2xl p-6 cursor-pointer focus:outline-none transition-colors", theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200')}>
-                            <summary className={cn("font-black outline-none select-none text-xl flex items-center justify-between", textHeading)}>
-                              Ver Gabarito 
-                              <span className="text-lime-500 text-2xl">+</span>
+                          <details className="mt-4 outline-none group border-t border-slate-200 dark:border-slate-700 pt-4">
+                            <summary className="font-black cursor-pointer text-lg opacity-80 hover:opacity-100 flex items-center gap-2 w-max">
+                              Ver Gabarito <ChevronDown size={20} className="group-open:rotate-180 transition-transform"/>
                             </summary>
-                            <div className={cn("mt-6 pt-6 border-t font-medium text-lg", theme === 'dark' ? 'border-slate-700 text-slate-300' : 'border-slate-200 text-slate-700')}>
-                              <div className="inline-block px-4 py-2 bg-lime-500/20 text-lime-600 dark:text-lime-400 rounded-lg font-black text-xl mb-4 border border-lime-500/30">Gabarito: {q.gabarito}</div>
-                              <p className="leading-relaxed">{formatBold(q.comentario)}</p>
+                            <div className="mt-6">
+                              <div className={cn("inline-block px-4 py-1 font-black mb-4 rounded-sm tracking-widest", theme === 'dark' ? 'bg-[#EF4444]/20 text-[#EF4444]' : 'bg-[#CB1C25]/10 text-[#CB1C25]')}>
+                                GABARITO: {q.gabarito}
+                              </div>
+                              <p className="text-justify leading-relaxed">{formatBold(q.comentario)}</p>
                             </div>
                           </details>
                         </div>
@@ -803,6 +808,12 @@ export const StructuredKnowledgeBase = () => {
                     </div>
                   </section>
                 )}
+
+                {/* Fake Footer / Página */}
+                <footer className="pt-16 pb-4 mt-16 border-t-2 flex flex-col items-center justify-center gap-4 opacity-70 border-slate-200 dark:border-slate-700 select-none">
+                   <div className="w-12 h-12 rounded-full flex items-center justify-center font-black text-white bg-[#F2C94C] shadow-md text-[#1B365D] dark:text-[#1B365D]">1</div>
+                   <span className="text-sm font-black tracking-widest uppercase">Mapeamento Finalizado</span>
+                </footer>
              </motion.div>
           ) : (
             selectedDiscipline && currentDisc && Object.keys(currentDisc.knowledgeData || {}).length === 0 && (
