@@ -62,7 +62,8 @@ export interface KnowledgeDiscipline {
   id?: string;
   userId: string;
   name: string;
-  createdAt?: string;
+  knowledgeData?: Record<string, StructuredKnowledgeResult> | null;
+  createdAt: string;
   updatedAt?: string;
 }
 

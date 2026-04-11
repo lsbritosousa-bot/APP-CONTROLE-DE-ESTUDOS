@@ -159,6 +159,60 @@ Retorne ESTRITAMENTE o resultado no formato JSON exigido pelo Schema. Não inclu
   }
 };
 
+export const identifyKnowledgeTopic = async (
+  text: string,
+  images: { mimeType: string; data: string }[] | undefined,
+  existingTopics: string[]
+): Promise<string> => {
+  const model = "gemini-2.5-flash";
+
+  const prompt = `
+Você é um Classificador de Assuntos para uma Base de Conhecimento Jurídico/Estudos.
+Seu trabalho é ler a NOVA INFORMAÇÃO (texto e/ou imagens contendo doutrina, lei, questões).
+Depois, você deve avaliar a lista de "TÓPICOS EXISTENTES" e responder com o nome do Tópico ao qual a NOVA INFORMAÇÃO pertence.
+Se a nova informação engloba um dos tópicos existentes, responda exatamente com o nome daquele tópico (sem alterar a string).
+Se a nova informação fala sobre um assunto COMPLETAMENTE NOVO ou que não se encaixa direito, CRIE e devolva um NOVO NOME DE TÓPICO (Curto, exato, máximo de 4 a 5 palavras). Ex: "Lei Penal no Tempo e Espaço".
+
+TÓPICOS EXISTENTES NA BASE DESSA DISCIPLINA:
+${existingTopics.length > 0 ? existingTopics.map(t => `- ${t}`).join("\\n") : "Ainda não existem tópicos. Você criará o primeiro."}
+
+NOVA INFORMAÇÃO (TEXTO/IMAGEM):
+${text || "Nenhum texto. Analise pelas imagens."}
+
+Responda ESTRITAMENTE o NOME DO TÓPICO, sem aspas, sem explicações extras. Apenas a string final que deve representar a gaveta de salvamento dessa informação.`;
+
+  try {
+    const contents: any[] = [];
+    const parts: any[] = [{ text: prompt }];
+
+    if (images && images.length > 0) {
+      images.forEach(img => {
+         parts.push({
+           inlineData: {
+             data: img.data,
+             mimeType: img.mimeType
+           }
+         });
+      });
+    }
+    
+    contents.push({ role: "user", parts });
+
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config: { safetySettings }
+    });
+
+    const topicName = (response.text || "").replace(/["'\\]/g, '').trim();
+    if (!topicName) return "Assuntos Gerais";
+    return topicName;
+  } catch (error) {
+    console.error("Erro em identifyKnowledgeTopic:", error);
+    return "Assuntos Diversos";
+  }
+};
+
 export const generateStructuredKnowledge = async (
   existingKnowledge: StructuredKnowledgeResult | null,
   newText: string,
