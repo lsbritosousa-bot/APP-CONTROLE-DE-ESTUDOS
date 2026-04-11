@@ -54,7 +54,18 @@ export const StructuredKnowledgeBase = () => {
     if (!profile) return;
     const q = query(collection(db, 'users', profile.uid, 'knowledge_disciplines'));
     return onSnapshot(q, (snapshot) => {
-      const subs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as DisciplineDoc));
+      const subs = snapshot.docs.map(d => {
+         const data = d.data();
+         let kData = data.knowledgeData;
+         
+         // Retrocompatibilidade: Se existir a estrutura antiga direto na raiz
+         if (kData && kData.visaoGeral) {
+            kData = { "Assunto Principal": kData };
+         }
+
+         return { id: d.id, ...data, knowledgeData: kData } as DisciplineDoc;
+      });
+
       setDisciplines(subs);
       if (subs.length > 0 && !selectedDiscipline) {
          setSelectedDiscipline(subs[0].id);
