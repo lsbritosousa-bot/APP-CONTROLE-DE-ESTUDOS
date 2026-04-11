@@ -122,6 +122,30 @@ export const StructuredKnowledgeBase = () => {
     }
   };
 
+  const handleDeleteTopic = async (disciplineId: string, topicName: string) => {
+    if (!profile) return;
+    if (!window.confirm(`Tem certeza que deseja apagar o subtópico "${topicName}" e todo seu conteúdo?`)) return;
+    
+    try {
+      const disc = disciplines.find(d => d.id === disciplineId);
+      if (!disc) return;
+      
+      const updatedKnowledgeData = { ...(disc.knowledgeData || {}) };
+      delete updatedKnowledgeData[topicName];
+
+      await updateDoc(doc(db, 'users', profile.uid, 'knowledge_disciplines', disciplineId), {
+         knowledgeData: updatedKnowledgeData,
+         updatedAt: new Date().toISOString()
+      });
+
+      if (selectedTopic === topicName) {
+         setSelectedTopic(null);
+      }
+    } catch(e) {
+      alert("Erro ao excluir subtópico.");
+    }
+  };
+
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
@@ -317,19 +341,27 @@ export const StructuredKnowledgeBase = () => {
                            <motion.div initial={{opacity: 0, height: 0}} animate={{opacity: 1, height: 'auto'}} exit={{opacity: 0, height: 0}} className="pl-4 space-y-1 overflow-hidden overflow-y-auto">
                               {topics.length === 0 && <p className="text-sm italic pl-2 py-2 opacity-50">Nenhum sub-tópico criado.</p>}
                               {topics.map(topic => (
-                                 <button
-                                   key={topic}
-                                   onClick={() => setSelectedTopic(topic)}
-                                   className={cn(
-                                     "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 text-base font-bold",
-                                     selectedTopic === topic
-                                      ? "bg-indigo-600 text-white shadow-md"
-                                      : theme === 'dark' ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100 border border-transparent hover:border-slate-200"
-                                   )}
-                                 >
-                                   <FolderOpen size={16}/> 
-                                   <span className="truncate">{topic}</span>
-                                 </button>
+                                 <div key={topic} className="flex gap-1 group relative">
+                                   <button
+                                     onClick={() => setSelectedTopic(topic)}
+                                     className={cn(
+                                       "w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 text-base font-bold",
+                                       selectedTopic === topic
+                                        ? "bg-indigo-600 text-white shadow-md"
+                                        : theme === 'dark' ? "text-slate-300 hover:bg-slate-700" : "text-slate-600 hover:bg-slate-100 border border-transparent hover:border-slate-200"
+                                     )}
+                                   >
+                                     <FolderOpen size={16} className="flex-shrink-0" /> 
+                                     <span className="truncate pr-6">{topic}</span>
+                                   </button>
+                                   <button 
+                                     onClick={(e) => { e.stopPropagation(); handleDeleteTopic(disc.id, topic); }}
+                                     className="text-red-500/30 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg absolute right-1 top-1 hidden group-hover:flex items-center bottom-1 transition-colors"
+                                     title="Apagar Subtópico"
+                                   >
+                                      <Trash2 size={16} />
+                                   </button>
+                                 </div>
                               ))}
                            </motion.div>
                         </AnimatePresence>
