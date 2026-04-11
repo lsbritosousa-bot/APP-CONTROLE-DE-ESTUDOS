@@ -69,14 +69,18 @@ export interface KnowledgeDiscipline {
 
 export interface StructuredKnowledgeResult {
   visaoGeral: {
-    textoDenso: string;
-    divergencias: string;
-    feynman: string;
+    fichas?: { titulo: string; definicaoCurta: string }[]; // Novo formato "Missão"
+    textoDenso?: string; // Mantido para retrocompatibilidade
+    divergencias?: string;
+    feynman?: string;
   };
-  esquemas: {
+  alertasEspeciais?: { tipo: 'IMPORTANTE' | 'LEMBRE-SE' | 'ATENÇÃO'; texto: string }[];
+  mnemonicos?: { acronimo: string; significado: string; fraseAtivadora: string }[];
+  esquemas?: {
     titulo: string;
-    headers: string[];
-    rows: string[][];
+    hierarquia?: { pai: string; filhos: string[] }[]; // Novo Schema de Chaves
+    headers?: string[]; // Mantido para retrocompatibilidade
+    rows?: string[][]; // Mantido para retrocompatibilidade
   }[];
   baseLegal: {
     artigo: string;

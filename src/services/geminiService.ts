@@ -221,15 +221,18 @@ export const generateStructuredKnowledge = async (
   const model = "gemini-2.5-flash";
 
   const prompt = `
-Você é um Desenvolvedor Senior e Arquiteto de Conteúdo para Concursos. Seu objetivo é processar recortes de questões, textos de lei, jurisprudência, doutrina e/ou imagens e retornar um material de estudo ESTRUTURADO, Autossuficiente e SUCINTO (vá direto ao ponto e não prolongue onde não for necessário).
+Você é um Arquiteto de Conteúdo para Concursos Públicos (estilo "Projeto Missão"). 
+Seu trabalho é pegar o "TEXTO BRUTO" ou as "IMAGENS" e produzir/atualizar um Material Estruturado, focado em ALTA RETENÇÃO VISUAL E SUCINTO.
 
-REQUISITOS ESTÉTICOS INEGOCIÁVEIS:
-1. GRIFE COM NEGRITO E AVISOS TODAS AS PALAVRAS-CHAVE: Use \`**palavra**\` para negritar exaustivamente prazos, verbos principais, ressalvas e exceções em todos os textos de resposta para que o aluno bata o olho e memorize no ato.
+REGRAS DE FORMATAÇÃO "MISSÃO" INEGOCIÁVEIS:
+1. BLOCOS CURTOS ("FICHAS"): É estritamente proibido usar parágrafos longos ou "textos densos" narrativos. TODO CONCEITO deve ser quebrado em "Fichas" temáticas (um título/tópico curto + definição direta de no máximo 3 a 4 linhas).
+2. MNEMÔNICOS: Sempre que identificar uma lista de itens, requisitos constitucionais ou princípios, crie um Acrônimo/Mnemônico forte para o candidato decorar, e forneça uma "frase ativadora" das letras (Ex: "PODC -> Pode Ser!").
+3. ALERTAS DE CORTE: Toda pegadinha, exceção jurisprudencial, ou prazo fatal não deve ficar perdido no meio do texto. Puxe e agrupe-os em "Alertas Especiais" separados (com tipo IMPORTANTE, LEMBRE-SE ou ATENÇÃO).
+4. ESQUEMAS HIERÁRQUICOS: Quando for útil dividir ou comparar, no campo "esquemas" crie árvores de chaves (O campo Pai ligado a um array de Filhos) que permitam desenhar diagramas indentados.
+5. GRIFE COMPULSIVAMENTE: Use \`**palavra**\` exaustivamente para criar contraste tático visual (grifar prazos, excessões, verbos, e conjunções).
 
-ATENÇÃO AO MODO ACUMULATIVO:
-Se houver uma "BASE DE CONHECIMENTO EXISTENTE" abaixo, seu trabalho é LER os itens novos (NOVA INFORMAÇÃO), combinar os dados antigos com os novos, expandir o que for necessário, e retornar a Base de Dados ATUALIZADA no formato de saída. Não exclua os resumos anteriores, ACUMULE E ORGANIZE.
-
-O formato de saída deve ser ESTRITAMENTE o JSON exigido pela API. Retorne TODOS os campos (Visão Geral, Esquemas, Base Legal, Jurisprudência, FAQ, Pegadinhas, Síntese e Estudo Ativo). Mantenha o JSON perfeitamente válido sem marcação adicional além do objeto raiz.
+FORMATO ACUMULATIVO:
+Se existir uma "BASE DE CONHECIMENTO EXISTENTE" abaixo, preserve suas ideias essenciais, integre o NOVO material com extrema organização sem excluir os velhos resumos.
 
 BASE DE CONHECIMENTO EXISTENTE:
 ${existingKnowledge ? JSON.stringify(existingKnowledge, null, 2) : "Nenhuma base anterior. Crie a base primária do zero a partir dos novos dados."}
@@ -267,11 +270,23 @@ ${newText || "Nenhum texto adicional."}
             visaoGeral: {
               type: Type.OBJECT,
               properties: {
+                fichas: {
+                   type: Type.ARRAY,
+                   items: { type: Type.OBJECT, properties: { titulo: { type: Type.STRING }, definicaoCurta: { type: Type.STRING } }, required: ["titulo", "definicaoCurta"] }
+                },
                 textoDenso: { type: Type.STRING },
                 divergencias: { type: Type.STRING },
                 feynman: { type: Type.STRING }
               },
-              required: ["textoDenso", "divergencias", "feynman"]
+              required: ["fichas", "divergencias", "feynman"]
+            },
+            alertasEspeciais: {
+              type: Type.ARRAY,
+              items: { type: Type.OBJECT, properties: { tipo: { type: Type.STRING }, texto: { type: Type.STRING } }, required: ["tipo", "texto"] }
+            },
+            mnemonicos: {
+              type: Type.ARRAY,
+              items: { type: Type.OBJECT, properties: { acronimo: { type: Type.STRING }, significado: { type: Type.STRING }, fraseAtivadora: { type: Type.STRING } }, required: ["acronimo", "significado", "fraseAtivadora"] }
             },
             esquemas: {
               type: Type.ARRAY,
@@ -279,13 +294,14 @@ ${newText || "Nenhum texto adicional."}
                 type: Type.OBJECT,
                 properties: {
                   titulo: { type: Type.STRING },
-                  headers: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  rows: { 
+                  hierarquia: { 
                      type: Type.ARRAY, 
-                     items: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  }
+                     items: { type: Type.OBJECT, properties: { pai: { type: Type.STRING }, filhos: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ["pai", "filhos"] }
+                  },
+                  headers: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  rows: { type: Type.ARRAY, items: { type: Type.ARRAY, items: { type: Type.STRING } } }
                 },
-                required: ["titulo", "headers", "rows"]
+                required: ["titulo"]
               }
             },
             baseLegal: {

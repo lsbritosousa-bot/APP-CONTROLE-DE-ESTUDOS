@@ -530,20 +530,51 @@ export const StructuredKnowledgeBase = () => {
                 {/* Card 1: Visão Geral */}
                 <section className={cn("p-10 rounded-3xl border-t-[10px] border-slate-800 transition-colors", bgCard)}>
                   <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                    <Target className="text-slate-500" size={32} /> 1. Visão Geral (O Cerne)
+                    <Target className="text-slate-500" size={32} /> 1. Fichas de Identificação
                   </h3>
+
+                  {/* Renderização dos Alertas Especiais */}
+                  {currentData.alertasEspeciais && currentData.alertasEspeciais.length > 0 && (
+                    <div className="space-y-4 mb-8">
+                      {currentData.alertasEspeciais.map((alerta, i) => (
+                        <div key={i} className={cn("flex gap-4 items-start p-6 rounded-3xl border-2", theme === 'dark' ? 'bg-yellow-900/20 border-yellow-600/50' : 'bg-yellow-50 border-yellow-300 shadow-[0_4px_20px_rgba(234,179,8,0.15)]')}>
+                          <AlertTriangle className={cn("flex-shrink-0 mt-1", theme === 'dark' ? 'text-yellow-500' : 'text-yellow-600')} size={32} />
+                          <div>
+                            <span className={cn("font-extrabold text-xl block mb-2 uppercase", theme === 'dark' ? 'text-yellow-500' : 'text-yellow-800')}>{alerta.tipo}</span>
+                            <p className={cn("font-medium text-lg", theme === 'dark' ? 'text-yellow-100' : 'text-yellow-900')}>{formatBold(alerta.texto)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="prose prose-lg max-w-none space-y-6">
-                    <p className={cn("font-medium whitespace-pre-wrap leading-loose", textBody)}>
-                       {formatBold(currentData.visaoGeral.textoDenso)}
-                    </p>
+                    {/* Renderização das Fichas Missão */}
+                    {currentData.visaoGeral.fichas && currentData.visaoGeral.fichas.length > 0 ? (
+                       <div className="space-y-4">
+                         {currentData.visaoGeral.fichas.map((ficha, i) => (
+                            <div key={i} className={cn("p-6 flex flex-col md:flex-row md:items-center gap-6 rounded-3xl shadow-sm transition-all", theme === 'dark' ? 'bg-slate-800/80 border border-slate-700 hover:border-indigo-500' : 'bg-white border-2 border-slate-100 hover:border-indigo-200')}>
+                               <div className="bg-indigo-600 text-white font-black px-6 py-4 rounded-2xl text-xl flex-shrink-0 md:w-1/3 shadow-lg shadow-indigo-600/20 text-center">
+                                  {formatBold(ficha.titulo)}
+                               </div>
+                               <p className="text-xl md:w-2/3 leading-relaxed">{formatBold(ficha.definicaoCurta)}</p>
+                            </div>
+                         ))}
+                       </div>
+                    ) : (
+                      <p className={cn("font-medium whitespace-pre-wrap leading-loose", textBody)}>
+                         {formatBold(currentData.visaoGeral.textoDenso || '')}
+                      </p>
+                    )}
+
                     {currentData.visaoGeral.divergencias && (
-                       <div className={cn("p-8 border-l-[6px] border-slate-500 rounded-r-2xl", theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50')}>
+                       <div className={cn("p-8 border-l-[6px] border-slate-500 rounded-r-2xl mt-8", theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-50')}>
                          <p className={cn("font-black mb-4 text-xl", textHeading)}>Divergências Doutrinárias/Jurisprudenciais:</p>
                          <p className="leading-relaxed">{formatBold(currentData.visaoGeral.divergencias)}</p>
                        </div>
                     )}
                     {currentData.visaoGeral.feynman && (
-                      <div className={cn("rounded-2xl p-8 border-2 mt-10", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
+                      <div className={cn("rounded-2xl p-8 border-2 mt-8", theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200')}>
                         <p className={cn("font-black flex items-center gap-3 mb-4 text-xl", theme === 'dark' ? 'text-emerald-400' : 'text-emerald-800')}>
                           <Lightbulb size={28} /> Método de Feynman (Para fixar agora)
                         </p>
@@ -553,32 +584,84 @@ export const StructuredKnowledgeBase = () => {
                   </div>
                 </section>
 
+                {/* Seção Nova: Mnemônicos Mágicos */}
+                {currentData.mnemonicos && currentData.mnemonicos.length > 0 && (
+                  <section className={cn("p-10 rounded-3xl border-t-[10px] border-emerald-500 transition-colors bg-gradient-to-br", theme === 'dark' ? 'from-[#1E293B] to-emerald-900/10' : 'from-white to-emerald-50')}>
+                     <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
+                       <Brain className="text-emerald-500" size={32} /> Mnemônicos Mágicos
+                     </h3>
+                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                       {currentData.mnemonicos.map((m, i) => (
+                          <div key={i} className="flex flex-col bg-emerald-600 text-white rounded-3xl p-8 shadow-xl shadow-emerald-500/30 transform hover:-translate-y-1 transition-transform">
+                            <h4 className="text-5xl font-black text-emerald-100 text-center mb-6 tracking-widest drop-shadow-md">{m.acronimo}</h4>
+                            <div className="bg-white text-emerald-900 rounded-2xl p-5 font-black text-center text-2xl mb-6 shadow-inner italic">
+                               "{m.fraseAtivadora}"
+                            </div>
+                            <div className="text-lg font-medium leading-loose space-y-2">
+                               {m.significado.split(/[,;]/).map((item, idx) => (
+                                 <div key={idx} className="flex items-center gap-3 bg-emerald-700/50 p-3 rounded-xl border border-emerald-500/30">
+                                    <div className="w-2 h-2 bg-emerald-300 rounded-full flex-shrink-0" />
+                                    <span>{formatBold(item.trim())}</span>
+                                 </div>
+                               ))}
+                            </div>
+                          </div>
+                       ))}
+                     </div>
+                  </section>
+                )}
+
                 {/* Card 2: Esquemas */}
                 {currentData.esquemas && currentData.esquemas.length > 0 && (
                   <section className={cn("p-10 rounded-3xl border-t-[10px] border-blue-500 transition-colors", bgCard)}>
                     <h3 className={cn("text-3xl font-black mb-8 flex items-center gap-4", textHeading)}>
-                      <Database className="text-blue-500" size={32} /> 2. Esquemas e Tabelas Focais
+                      <Database className="text-blue-500" size={32} /> 2. Esquemas Organizados
                     </h3>
                     <div className="space-y-10">
                       {currentData.esquemas.map((esq, idx) => (
                         <div key={idx}>
                           {esq.titulo && <h4 className={cn("font-black text-2xl mb-6", textHeading)}>{formatBold(esq.titulo)}</h4>}
-                          <div className={cn("overflow-x-auto rounded-3xl border-2", theme === 'dark' ? 'border-slate-700' : 'border-slate-200')}>
-                             <table className="table-auto w-full text-left min-w-[600px]">
-                               <thead className={theme === 'dark' ? 'bg-slate-800/80 border-b-2 border-slate-700 text-slate-300' : 'bg-slate-100 border-b-2 border-slate-200 text-slate-700'}>
-                                 <tr>
-                                   {esq.headers.map((h, i) => <th key={i} className="p-6 font-black text-lg">{formatBold(h)}</th>)}
-                                 </tr>
-                               </thead>
-                               <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                                 {esq.rows.map((row, rI) => (
-                                   <tr key={rI} className={cn("transition-colors", theme === 'dark' ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50')}>
-                                     {row.map((cell, cI) => <td key={cI} className="p-6 text-lg">{formatBold(cell)}</td>)}
-                                   </tr>
-                                 ))}
-                               </tbody>
-                             </table>
-                          </div>
+                          
+                          {/* Rendering Hierarquia/Chaves se existir */}
+                          {esq.hierarquia && esq.hierarquia.length > 0 ? (
+                             <div className="space-y-6">
+                               {esq.hierarquia.map((h, i) => (
+                                  <div key={i} className={cn("flex flex-col lg:flex-row items-stretch border-2 rounded-3xl overflow-hidden", theme === 'dark' ? 'border-slate-700' : 'border-slate-200')}>
+                                     <div className={cn("p-6 flex items-center justify-center lg:w-1/3 lg:border-r-2 font-black text-2xl text-center", theme === 'dark' ? 'bg-slate-800 border-slate-700 text-blue-400' : 'bg-blue-50 border-slate-200 text-blue-900')}>
+                                        {formatBold(h.pai)}
+                                     </div>
+                                     <div className={cn("p-6 flex flex-col justify-center gap-4 lg:w-2/3 bg-transparent")}>
+                                        {h.filhos.map((filho, fIdx) => (
+                                           <div key={fIdx} className={cn("p-4 rounded-2xl flex items-start gap-4 shadow-sm", theme === 'dark' ? 'bg-slate-800/50' : 'bg-white border')}>
+                                              <ChevronRight className="flex-shrink-0 text-blue-500 mt-1" />
+                                              <span className="text-lg leading-relaxed">{formatBold(filho)}</span>
+                                           </div>
+                                        ))}
+                                     </div>
+                                  </div>
+                               ))}
+                             </div>
+                          ) : (
+                            /* Fallback (Retrocompatibilidade) para tabelas se hierarquia nao existir */
+                            esq.headers && esq.rows && (
+                              <div className={cn("overflow-x-auto rounded-3xl border-2", theme === 'dark' ? 'border-slate-700' : 'border-slate-200')}>
+                                 <table className="table-auto w-full text-left min-w-[600px]">
+                                   <thead className={theme === 'dark' ? 'bg-slate-800/80 border-b-2 border-slate-700 text-slate-300' : 'bg-slate-100 border-b-2 border-slate-200 text-slate-700'}>
+                                     <tr>
+                                       {esq.headers.map((h, i) => <th key={i} className="p-6 font-black text-lg">{formatBold(h)}</th>)}
+                                     </tr>
+                                   </thead>
+                                   <tbody className="divide-y divide-slate-200 dark:divide-slate-700/50">
+                                     {esq.rows.map((row, rI) => (
+                                       <tr key={rI} className={cn("transition-colors", theme === 'dark' ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50')}>
+                                         {row.map((cell, cI) => <td key={cI} className="p-6 text-lg">{formatBold(cell)}</td>)}
+                                       </tr>
+                                     ))}
+                                   </tbody>
+                                 </table>
+                              </div>
+                            )
+                          )}
                         </div>
                       ))}
                     </div>
