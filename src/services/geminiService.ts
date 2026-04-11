@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { StructuredKnowledgeResult } from "../types";
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
@@ -155,6 +156,174 @@ Retorne ESTRITAMENTE o resultado no formato JSON exigido pelo Schema. Não inclu
        throw new Error("Erro de formatação JSON na resposta da IA.");
     }
     throw error;
+  }
+};
+
+export const generateStructuredKnowledge = async (
+  existingKnowledge: StructuredKnowledgeResult | null,
+  newText: string,
+  images?: { mimeType: string; data: string }[]
+): Promise<StructuredKnowledgeResult> => {
+  const model = "gemini-2.5-flash";
+
+  const prompt = `
+Você é um Desenvolvedor Full-Stack Senior e Arquiteto de Conteúdo para Concursos Públicos. Seu objetivo é processar recortes de questões, textos de lei, jurisprudência, doutrina e/ou imagens e retornar um material de estudo ESTRUTURADO, Autossuficiente, Denso e Definitivo.
+
+ATENÇÃO AO MODO ACUMULATIVO:
+Se houver uma "BASE DE CONHECIMENTO EXISTENTE" abaixo, seu trabalho é LER os itens novos (NOVA INFORMAÇÃO), combinar os dados antigos com os novos, expandir o que for necessário, e retornar a Base de Dados COMPLETAMENTE ATUALIZADA no formato de saída. Não exclua os resumos anteriores, ACUMULE E ORGANIZE.
+
+DIRETRIZES TÉCNICAS:
+1. Exaustividade Absoluta (nível doutrinário).
+2. Método de Feynman: Em todos os campos "feynman" requeridos, inclua analogias da vida real.
+3. Pensamento Comparativo e Esquemas.
+
+O formato de saída deve ser ESTRITAMENTE o JSON exigido pela API. Retorne TODOS os campos (Visão Geral, Esquemas, Mapa Mental em formato sereia/mermaid, Base Legal, Jurisprudência, FAQ, Pegadinhas, Estudo Ativo e Flashcards). Mantenha o JSON perfeitamente válido sem marcação adicional além do objeto raiz.
+
+BASE DE CONHECIMENTO EXISTENTE:
+${existingKnowledge ? JSON.stringify(existingKnowledge, null, 2) : "Nenhuma base anterior. Crie a base primária do zero a partir dos novos dados."}
+
+NOVA INFORMAÇÃO (TEXTO E IMAGENS):
+${newText || "Nenhum texto adicional."}
+`;
+
+  try {
+    const contents: any[] = [];
+    const parts: any[] = [{ text: prompt }];
+
+    if (images && images.length > 0) {
+      images.forEach(img => {
+         parts.push({
+           inlineData: {
+             data: img.data,
+             mimeType: img.mimeType
+           }
+         });
+      });
+    }
+    
+    contents.push({ role: "user", parts });
+
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config: {
+        safetySettings,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            visaoGeral: {
+              type: Type.OBJECT,
+              properties: {
+                textoDenso: { type: Type.STRING },
+                divergencias: { type: Type.STRING },
+                feynman: { type: Type.STRING }
+              },
+              required: ["textoDenso", "divergencias", "feynman"]
+            },
+            esquemas: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  titulo: { type: Type.STRING },
+                  headers: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  rows: { 
+                     type: Type.ARRAY, 
+                     items: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  }
+                },
+                required: ["titulo", "headers", "rows"]
+              }
+            },
+            mapaMental: { type: Type.STRING, description: "Diagrama Mermaid string válida" },
+            baseLegal: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  artigo: { type: Type.STRING },
+                  texto: { type: Type.STRING },
+                  comentario: { type: Type.STRING },
+                  feynman: { type: Type.STRING }
+                },
+                required: ["artigo", "texto", "comentario", "feynman"]
+              }
+            },
+            jurisprudencia: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  origem: { type: Type.STRING },
+                  tese: { type: Type.STRING },
+                  texto: { type: Type.STRING },
+                  feynman: { type: Type.STRING }
+                },
+                required: ["origem", "tese", "texto", "feynman"]
+              }
+            },
+            pegadinhas: { type: Type.ARRAY, items: { type: Type.STRING } },
+            faq: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  pergunta: { type: Type.STRING },
+                  resposta: { type: Type.STRING }
+                },
+                required: ["pergunta", "resposta"]
+              }
+            },
+            sintese: { type: Type.ARRAY, items: { type: Type.STRING } },
+            estudoAtivo: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  enunciado: { type: Type.STRING },
+                  alternativas: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  gabarito: { type: Type.STRING },
+                  comentario: { type: Type.STRING }
+                },
+                required: ["enunciado", "alternativas", "gabarito", "comentario"]
+              }
+            },
+            flashcards: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  frente: { type: Type.STRING },
+                  verso: { type: Type.STRING }
+                },
+                required: ["frente", "verso"]
+              }
+            }
+          },
+          required: [
+            "visaoGeral", "esquemas", "mapaMental", "baseLegal", "jurisprudencia",
+            "pegadinhas", "faq", "sintese", "estudoAtivo", "flashcards"
+          ]
+        }
+      }
+    });
+
+    const rawText = response.text || '';
+    
+    let cleanedJSON = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    if (!cleanedJSON.startsWith('{')) {
+      const start = cleanedJSON.indexOf('{');
+      const end = cleanedJSON.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && start < end) {
+        cleanedJSON = cleanedJSON.substring(start, end + 1);
+      }
+    }
+
+    return JSON.parse(cleanedJSON) as StructuredKnowledgeResult;
+  } catch (error) {
+    console.error("Erro em generateStructuredKnowledge:", error);
+    throw new Error("Erro na geração da Base de Conhecimento Estruturada.");
   }
 };
 

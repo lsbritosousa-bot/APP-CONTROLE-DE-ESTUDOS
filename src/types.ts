@@ -57,3 +57,47 @@ export interface TAFSession {
   performance: number;
   unit: string;
 }
+
+export interface KnowledgeDiscipline {
+  id?: string;
+  userId: string;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StructuredKnowledgeResult {
+  visaoGeral: {
+    textoDenso: string;
+    divergencias: string;
+    feynman: string;
+  };
+  esquemas: {
+    titulo: string;
+    headers: string[];
+    rows: string[][];
+  }[];
+  mapaMental: string;
+  baseLegal: {
+    artigo: string;
+    texto: string;
+    comentario: string;
+    feynman: string;
+  }[];
+  jurisprudencia: {
+    origem: string;
+    tese: string;
+    texto: string;
+    feynman: string;
+  }[];
+  pegadinhas: string[];
+  faq: { pergunta: string; resposta: string }[];
+  sintese: string[];
+  estudoAtivo: {
+    enunciado: string;
+    alternativas: string[];
+    gabarito: string;
+    comentario: string;
+  }[];
+  flashcards: { frente: string; verso: string }[];
+}
