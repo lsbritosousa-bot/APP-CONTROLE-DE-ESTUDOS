@@ -20,7 +20,8 @@ import {
   Moon,
   Sun,
   Library,
-  FolderOpen
+  FolderOpen,
+  Pencil
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from './AuthProvider';
@@ -143,6 +144,49 @@ export const StructuredKnowledgeBase = () => {
       }
     } catch(e) {
       alert("Erro ao excluir subtópico.");
+    }
+  };
+
+  const handleRenameDiscipline = async (id: string, currentName: string) => {
+    if (!profile) return;
+    const newName = window.prompt("Novo nome da disciplina:", currentName);
+    if (!newName || newName.trim() === "" || newName === currentName) return;
+    
+    try {
+      await updateDoc(doc(db, 'users', profile.uid, 'knowledge_disciplines', id), {
+         name: newName.trim(),
+         updatedAt: new Date().toISOString()
+      });
+    } catch(e) {
+      alert("Erro ao renomear disciplina.");
+    }
+  };
+
+  const handleRenameTopic = async (disciplineId: string, currentTopicName: string) => {
+    if (!profile) return;
+    const newTopicName = window.prompt("Novo nome do subtópico:", currentTopicName);
+    if (!newTopicName || newTopicName.trim() === "" || newTopicName === currentTopicName) return;
+    
+    try {
+      const disc = disciplines.find(d => d.id === disciplineId);
+      if (!disc) return;
+      
+      const updatedKnowledgeData = { ...(disc.knowledgeData || {}) };
+      const topicData = updatedKnowledgeData[currentTopicName];
+      
+      updatedKnowledgeData[newTopicName.trim()] = topicData;
+      delete updatedKnowledgeData[currentTopicName];
+
+      await updateDoc(doc(db, 'users', profile.uid, 'knowledge_disciplines', disciplineId), {
+         knowledgeData: updatedKnowledgeData,
+         updatedAt: new Date().toISOString()
+      });
+
+      if (selectedTopic === currentTopicName) {
+         setSelectedTopic(newTopicName.trim());
+      }
+    } catch(e) {
+      alert("Erro ao renomear subtópico.");
     }
   };
 
@@ -333,6 +377,13 @@ export const StructuredKnowledgeBase = () => {
                         >
                            <Trash2 size={20} />
                         </button>
+                        <button 
+                          onClick={() => handleRenameDiscipline(disc.id, disc.name)}
+                          className="text-indigo-500/50 hover:text-indigo-500 hover:bg-indigo-500/10 p-3 rounded-xl absolute right-11 top-1 hidden group-hover:flex items-center bottom-1 transition-colors backdrop-blur-md"
+                          title="Renomear Disciplina"
+                        >
+                           <Pencil size={20} />
+                        </button>
                       </div>
 
                       {/* Renderização de Subtópicos em Sanfona */}
@@ -352,7 +403,7 @@ export const StructuredKnowledgeBase = () => {
                                      )}
                                    >
                                      <FolderOpen size={16} className="flex-shrink-0" /> 
-                                     <span className="truncate pr-6">{topic}</span>
+                                     <span className="truncate pr-14">{topic}</span>
                                    </button>
                                    <button 
                                      onClick={(e) => { e.stopPropagation(); handleDeleteTopic(disc.id, topic); }}
@@ -360,6 +411,13 @@ export const StructuredKnowledgeBase = () => {
                                      title="Apagar Subtópico"
                                    >
                                       <Trash2 size={16} />
+                                   </button>
+                                   <button 
+                                     onClick={(e) => { e.stopPropagation(); handleRenameTopic(disc.id, topic); }}
+                                     className="text-indigo-500/40 hover:text-indigo-500 hover:bg-indigo-500/10 p-2 rounded-lg absolute right-9 top-1 hidden group-hover:flex items-center bottom-1 transition-colors"
+                                     title="Renomear Subtópico"
+                                   >
+                                      <Pencil size={16} />
                                    </button>
                                  </div>
                               ))}
