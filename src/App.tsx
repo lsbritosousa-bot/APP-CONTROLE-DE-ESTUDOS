@@ -31,6 +31,7 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, 
 import { parseSyllabus } from './services/geminiService';
 import { DistillationMentor } from './components/DistillationMentor';
 import { StructuredKnowledgeBase } from './components/StructuredKnowledgeBase';
+import { ExamSimulator } from './components/ExamSimulator';
 
 // --- Components ---
 
@@ -3442,6 +3443,7 @@ const MainApp = () => {
           <SidebarItem icon={ClipboardList} label="Caderno de Erros" active={activeTab === 'errors'} onClick={() => { setActiveTab('errors'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Wand2} label="Mentor" active={activeTab === 'mentor'} onClick={() => { setActiveTab('mentor'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Library} label="Base de Conhecimento" active={activeTab === 'knowledge'} onClick={() => { setActiveTab('knowledge'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={Target} label="Simulador de Provas" active={activeTab === 'simulator'} onClick={() => { setActiveTab('simulator'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Settings} label="Configurações" active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }} />
         </nav>
 
@@ -3476,6 +3478,7 @@ const MainApp = () => {
           {activeTab === 'errors' && <ErrorNotebook key="errors" />}
           {activeTab === 'mentor' && <DistillationMentor key="mentor" />}
           {activeTab === 'knowledge' && <StructuredKnowledgeBase key="knowledge" />}
+          {activeTab === 'simulator' && <ExamSimulator key="simulator" />}
           {activeTab === 'settings' && <SettingsPage key="settings" />}
         </AnimatePresence>
       </main>

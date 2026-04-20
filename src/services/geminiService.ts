@@ -370,3 +370,91 @@ ${newText || "Nenhum texto adicional."}
   }
 };
 
+export interface ExamQuestion {
+  id: string;
+  subjectId: string;
+  topicTitle: string;
+  enunciado: string;
+  tipo: 'CEBRASPE' | 'MULTIPLA_ESCOLHA';
+  gabaritoCebraspe?: 'CERTO' | 'ERRADO';
+  alternativas?: string[];
+  gabaritoMultipla?: 'A' | 'B' | 'C' | 'D' | 'E';
+  comentario: string;
+}
+
+export const generateExamQuestions = async (
+  banca: string,
+  cargo: string,
+  materias: { name: string; weight: number; topics: string[] }[],
+  totalQuestions: number
+): Promise<ExamQuestion[]> => {
+  const model = "gemini-2.5-flash";
+
+  const isCebraspe = banca.toUpperCase().includes('CEBRASPE') || banca.toUpperCase().includes('CESPE');
+
+  const prompt = `
+Você é um EXAMINADOR SÊNIOR de bancas de concurso público focado na carreira policial.
+Crie um simulado de concurso com um total de exatas ${totalQuestions} questões, distribuídas entre as matérias fornecidas pelo usuário.
+
+Contexto do Simulado:
+- Banca: ${banca}
+- Cargo: ${cargo}
+- Estilo da Questão: ${isCebraspe ? 'Certo ou Errado (CEBRASPE)' : 'Múltipla Escolha (5 alternativas A a E, FGV/VUNESP/FCC)'}
+
+Matérias e Tópicos (Apenas esses assuntos podem ser cobrados):
+${JSON.stringify(materias)}
+
+Diretrizes Inegociáveis:
+1. O JSON retornado DEVE conter exatamente ${totalQuestions} questões (itens).
+2. TIPO DA QUESTÃO: 
+   - Se for CEBRASPE, use "CEBRASPE" com "gabaritoCebraspe" sendo "CERTO" ou "ERRADO". Não gere campo de alternativas.
+   - Se for outra banca, use "MULTIPLA_ESCOLHA", popule "alternativas" com 5 frases curtas, e "gabaritoMultipla" sendo "A", "B", "C", "D" ou "E".
+3. Mantenha os textos dos enunciados de tamanho adequado para simulados de alto nível.
+4. O campo "comentario" deve explicar qual é a armadilha do examinador ou o embasamento legal.
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        safetySettings,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING, description: "ID único gerado (uuid ou timestamp)" },
+              subjectId: { type: Type.STRING, description: "Nome da matéria" },
+              topicTitle: { type: Type.STRING, description: "Nome do tópico cobrado" },
+              enunciado: { type: Type.STRING, description: "Enunciado da questão" },
+              tipo: { type: Type.STRING, description: "CEBRASPE ou MULTIPLA_ESCOLHA" },
+              gabaritoCebraspe: { type: Type.STRING, description: "Se CEBRASPE: CERTO ou ERRADO" },
+              alternativas: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Se MULTIPLA_ESCOLHA: 5 opções de respostas" },
+              gabaritoMultipla: { type: Type.STRING, description: "Se MULTIPLA_ESCOLHA: A, B, C, D ou E" },
+              comentario: { type: Type.STRING, description: "Comentário do professor para ajudar nos estudos" }
+            },
+            required: ["id", "subjectId", "topicTitle", "enunciado", "tipo", "comentario"]
+          }
+        }
+      }
+    });
+
+    const rawText = response.text || '';
+    
+    let cleanedJSON = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
+    if (!cleanedJSON.startsWith('[')) {
+      const start = cleanedJSON.indexOf('[');
+      const end = cleanedJSON.lastIndexOf(']');
+      if (start !== -1 && end !== -1 && start < end) {
+        cleanedJSON = cleanedJSON.substring(start, end + 1);
+      }
+    }
+
+    return JSON.parse(cleanedJSON) as ExamQuestion[];
+  } catch (error) {
+    console.error("Erro em generateExamQuestions:", error);
+    throw new Error("Erro na geração do simulado com a IA.");
+  }
+};
