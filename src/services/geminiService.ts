@@ -385,24 +385,28 @@ export interface ExamQuestion {
 export const generateExamQuestions = async (
   banca: string,
   cargo: string,
-  materias: { name: string; weight: number; topics: string[] }[],
+  source: { type: 'app'; materias: { name: string; weight: number; topics: string[] }[] } | { type: 'text'; text: string },
   totalQuestions: number
 ): Promise<ExamQuestion[]> => {
   const model = "gemini-2.5-flash";
 
   const isCebraspe = banca.toUpperCase().includes('CEBRASPE') || banca.toUpperCase().includes('CESPE');
 
+  const subjectsContext = source.type === 'app' 
+    ? JSON.stringify(source.materias) 
+    : source.text;
+
   const prompt = `
 Você é um EXAMINADOR SÊNIOR de bancas de concurso público focado na carreira policial.
-Crie um simulado de concurso com um total de exatas ${totalQuestions} questões, distribuídas entre as matérias fornecidas pelo usuário.
+Crie um simulado de concurso com um total de exatas ${totalQuestions} questões, distribuídas entre as matérias e tópicos solicitados.
 
 Contexto do Simulado:
 - Banca: ${banca}
 - Cargo: ${cargo}
 - Estilo da Questão: ${isCebraspe ? 'Certo ou Errado (CEBRASPE)' : 'Múltipla Escolha (5 alternativas A a E, FGV/VUNESP/FCC)'}
 
-Matérias e Tópicos (Apenas esses assuntos podem ser cobrados):
-${JSON.stringify(materias)}
+Matérias e Tópicos base (Você deve extrair os assuntos deste conteúdo e gerar todas as questões EXCLUSIVAMENTE sobre o que está descrito abaixo. Se for um recorte específico de uma lei ou edital, limite-se a ele):
+${subjectsContext}
 
 Diretrizes Inegociáveis:
 1. O JSON retornado DEVE conter exatamente ${totalQuestions} questões (itens).

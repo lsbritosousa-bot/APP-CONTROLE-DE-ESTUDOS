@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Target, Clock, CheckCircle2, XCircle, AlertTriangle, Printer, RotateCcw, Brain, Check, FileText } from 'lucide-react';
+import { Target, Clock, CheckCircle2, XCircle, AlertTriangle, Printer, RotateCcw, Brain, Check, FileText, Upload, Type } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { db } from '../firebase';
 import { collection, getDocs, query } from '../lib/firestoreSupabase';
@@ -17,6 +17,8 @@ export const ExamSimulator = () => {
   const [examBoard, setExamBoard] = useState('CEBRASPE');
   const [cargo, setCargo] = useState('Agente de Polícia');
   const [totalQuestions, setTotalQuestions] = useState(20);
+  const [sourceType, setSourceType] = useState<'app' | 'text'>('app');
+  const [customText, setCustomText] = useState('');
 
   // Phases: 'setup' | 'loading' | 'exam' | 'result'
   const [phase, setPhase] = useState<'setup' | 'loading' | 'exam' | 'result'>('setup');
@@ -60,24 +62,49 @@ export const ExamSimulator = () => {
     return () => clearInterval(timer);
   }, [phase]);
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setCustomText(event.target.result as string);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleStart = async () => {
-    if (subjects.length === 0) {
+    if (sourceType === 'app' && subjects.length === 0) {
       alert("Nenhuma disciplina encontrada no edital.");
       return;
     }
+    if (sourceType === 'text' && customText.trim().length === 0) {
+      alert("Por favor, cole o texto do edital ou faça upload de um arquivo txt.");
+      return;
+    }
+
     setPhase('loading');
     setTimeSpent(0);
     setAnswers({});
 
     try {
-      // Prepare payload
-      const materias = subjects.slice(0, 5).map(s => ({
-        name: s.name,
-        weight: s.weight || 1,
-        topics: s.topics.slice(0, 5).map(t => t.title) // Limiting payload
-      }));
+      const payload = sourceType === 'app' 
+        ? {
+            type: 'app' as const,
+            materias: subjects.slice(0, 5).map(s => ({
+              name: s.name,
+              weight: s.weight || 1,
+              topics: s.topics.slice(0, 5).map(t => t.title)
+            }))
+          }
+        : {
+            type: 'text' as const,
+            text: customText
+          };
 
-      const generated = await generateExamQuestions(examBoard, cargo, materias, totalQuestions);
+      const generated = await generateExamQuestions(examBoard, cargo, payload, totalQuestions);
       if (!generated || generated.length === 0) throw new Error("IA retornou array vazio.");
       setQuestions(generated);
       setPhase('exam');
@@ -159,81 +186,134 @@ export const ExamSimulator = () => {
           <h2 className="text-2xl font-bold mb-6 text-emerald-400">Configuração do Simulado</h2>
           
           <div className="space-y-6 relative z-10">
-            {loadingConfig ? (
-              <p className="text-muted-foreground animate-pulse">Carregando seus dados...</p>
-            ) : subjects.length === 0 ? (
-              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-500">
-                Você precisa importar um Edital Verticalizado antes de gerar um simulado.
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Banca Examinadora</label>
-                    <select 
-                      value={examBoard} 
-                      onChange={(e) => setExamBoard(e.target.value)}
-                      className="w-full bg-[#0a0a0a] border border-emerald-500/20 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-emerald-500/40 text-foreground"
-                    >
-                      <option value="CEBRASPE">CEBRASPE (Certo/Errado)</option>
-                      <option value="FGV">FGV (Múltipla Escolha)</option>
-                      <option value="VUNESP">VUNESP (Múltipla Escolha)</option>
-                      <option value="FCC">FCC (Múltipla Escolha)</option>
-                      <option value="OUTRA">Outra</option>
-                    </select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Cargo Foco</label>
-                    <input 
-                      type="text" 
-                      value={cargo}
-                      onChange={(e) => setCargo(e.target.value)}
-                      className="w-full bg-[#0a0a0a] border border-emerald-500/20 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-emerald-500/40 text-foreground"
-                      placeholder="Ex: Agente da Polícia Federal"
-                    />
-                  </div>
-                </div>
+            {/* Toggle Tipo de Fonte */}
+            <div className="flex bg-[#0a0a0a] p-1 rounded-xl border border-emerald-500/20">
+              <button
+                onClick={() => setSourceType('app')}
+                className={cn(
+                  "flex-1 py-3 font-bold text-sm rounded-lg transition-all flex items-center justify-center gap-2",
+                  sourceType === 'app'
+                    ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                    : "text-muted-foreground hover:text-white"
+                )}
+              >
+                <FileText size={18} /> Edital Gravado
+              </button>
+              <button
+                onClick={() => setSourceType('text')}
+                className={cn(
+                  "flex-1 py-3 font-bold text-sm rounded-lg transition-all flex items-center justify-center gap-2",
+                  sourceType === 'text'
+                    ? "bg-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
+                    : "text-muted-foreground hover:text-white"
+                )}
+              >
+                <Type size={18} /> Texto / Arquivo Extra
+              </button>
+            </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Quantidade de Questões (IA)</label>
-                  <div className="flex gap-4">
-                    {[10, 20, 30, 50].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setTotalQuestions(num)}
-                        className={cn(
-                          "flex-1 py-3 rounded-xl font-bold transition-all border",
-                          totalQuestions === num 
-                            ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                            : "bg-[#0a0a0a] border-emerald-500/10 text-muted-foreground hover:border-emerald-500/30"
-                        )}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-[#0a0a0a] p-4 rounded-xl border border-emerald-500/10">
-                  <p className="text-sm text-emerald-500/80 mb-2 font-bold uppercase tracking-widest">Disciplinas Selecionadas</p>
-                  <div className="flex flex-wrap gap-2">
-                    {subjects.map(s => (
-                      <span key={s.id} className="text-xs bg-[#141414] border border-emerald-500/20 px-2 py-1 rounded-md text-muted-foreground">
-                        {s.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <button 
-                  onClick={handleStart}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition-all flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Banca Examinadora</label>
+                <select 
+                  value={examBoard} 
+                  onChange={(e) => setExamBoard(e.target.value)}
+                  className="w-full bg-[#0a0a0a] border border-emerald-500/20 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-emerald-500/40 text-foreground"
                 >
-                  <Target size={20} /> Iniciar Missão
-                </button>
+                  <option value="CEBRASPE">CEBRASPE (Certo/Errado)</option>
+                  <option value="FGV">FGV (Múltipla Escolha)</option>
+                  <option value="VUNESP">VUNESP (Múltipla Escolha)</option>
+                  <option value="FCC">FCC (Múltipla Escolha)</option>
+                  <option value="OUTRA">Outra</option>
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Cargo Foco</label>
+                <input 
+                  type="text" 
+                  value={cargo}
+                  onChange={(e) => setCargo(e.target.value)}
+                  className="w-full bg-[#0a0a0a] border border-emerald-500/20 rounded-xl px-4 py-3 outline-none focus:ring-2 ring-emerald-500/40 text-foreground"
+                  placeholder="Ex: Agente da Polícia Federal"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Quantidade de Questões (IA)</label>
+              <div className="flex gap-4">
+                {[10, 20, 30, 50].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setTotalQuestions(num)}
+                    className={cn(
+                      "flex-1 py-3 rounded-xl font-bold transition-all border",
+                      totalQuestions === num 
+                        ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                        : "bg-[#0a0a0a] border-emerald-500/10 text-muted-foreground hover:border-emerald-500/30"
+                    )}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {sourceType === 'app' && (
+              <>
+                {loadingConfig ? (
+                  <p className="text-muted-foreground animate-pulse">Carregando seus dados...</p>
+                ) : subjects.length === 0 ? (
+                  <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-500 font-bold">
+                    Você precisa importar um Edital Verticalizado antes de gerar um simulado por essa forma.
+                  </div>
+                ) : (
+                  <div className="bg-[#0a0a0a] p-4 rounded-xl border border-emerald-500/10">
+                    <p className="text-sm text-emerald-500/80 mb-2 font-bold uppercase tracking-widest">Disciplinas Selecionadas Automáticas</p>
+                    <div className="flex flex-wrap gap-2">
+                      {subjects.map(s => (
+                        <span key={s.id} className="text-xs bg-[#141414] border border-emerald-500/20 px-2 py-1 rounded-md text-muted-foreground">
+                          {s.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
+
+            {sourceType === 'text' && (
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-emerald-500 uppercase tracking-widest">Texto Base para Questões</label>
+                <div className="bg-[#0a0a0a] rounded-xl border border-emerald-500/20 overflow-hidden focus-within:ring-2 ring-emerald-500/40 transition-all">
+                  <textarea
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                    placeholder="Cole aqui a parte de uma lei, conteúdo de disciplina ou lista de tópicos separadas. Ex: Lei 8112..."
+                    className="w-full bg-transparent p-4 min-h-[150px] outline-none text-foreground placeholder:text-muted-foreground resize-y"
+                  />
+                  <div className="bg-[#141414] border-t border-emerald-500/20 p-3 flex justify-end">
+                    <label className="cursor-pointer flex items-center gap-2 bg-[#0a0a0a] hover:bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm">
+                      <Upload size={16} /> Fazer Upload .TXT
+                      <input 
+                        type="file" 
+                        accept=".txt" 
+                        className="hidden" 
+                        onChange={handleFileUpload}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button 
+              onClick={handleStart}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition-all flex justify-center items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+            >
+              <Target size={20} /> Iniciar Missão de Treino
+            </button>
           </div>
         </motion.div>
       )}
