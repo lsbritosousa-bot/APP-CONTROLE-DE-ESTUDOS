@@ -434,6 +434,8 @@ const Dashboard = () => {
 
   const markTopicAsCompleted = async (subjectId: string, topicId: string) => {
     if (!profile) return;
+    
+    // 1. Marca tópico como concluído no BD
     const topicRef = doc(db, 'users', profile.uid, 'subjects', subjectId, 'topics', topicId);
     await updateDoc(topicRef, { 
       concluido: true, 
@@ -442,6 +444,18 @@ const Dashboard = () => {
       studiedQuestoes: true, 
       studiedFlashcards: true,
       lastStudied: new Date().toISOString()
+    });
+
+    // 2. Registra uma sessão no dia atual, garantindo que o ciclo rotacione para a PRÓXIMA disciplina
+    await addDoc(collection(db, 'users', profile.uid, 'sessions'), {
+      userId: profile.uid,
+      subjectId: subjectId,
+      topicId: topicId,
+      startTime: new Date().toISOString(),
+      netTimeMinutes: 0, // Apenas para registrar estudo no ciclo
+      questionsCount: 0,
+      correctCount: 0,
+      xpEarned: 50 // Ganhos de XP por concluir meta
     });
   };
 
