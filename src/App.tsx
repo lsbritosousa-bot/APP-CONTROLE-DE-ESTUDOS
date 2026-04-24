@@ -432,15 +432,78 @@ const Dashboard = () => {
   const totalTopics = allTopics.length;
   const syllabusProgress = totalTopics > 0 ? Math.round(allTopics.reduce((acc, t) => acc + (t.theoryProgress || 0), 0) / totalTopics) : 0;
 
-  // Missão do Dia dinâmica: avança para a próxima disciplina não estudada hoje
+  const markTopicAsCompleted = async (subjectId: string, topicId: string) => {
+    if (!profile) return;
+    const topicRef = doc(db, 'users', profile.uid, 'subjects', subjectId, 'topics', topicId);
+    await updateDoc(topicRef, { 
+      concluido: true, 
+      theoryProgress: 100, 
+      studiedResumo: true, 
+      studiedQuestoes: true, 
+      studiedFlashcards: true,
+      lastStudied: new Date().toISOString()
+    });
+  };
+
+  const relevanceScore = (rel?: string) => {
+    const r = rel?.toLowerCase();
+    if (r === 'alta') return 3;
+    if (r === 'média' || r === 'media') return 2;
+    if (r === 'baixa') return 1;
+    return 0;
+  };
+
+  // Missão do Dia dinâmica com Algoritmo de Ciclo por Peso
   const sortedByWeight = [...subjects].sort((a, b) => b.weight - a.weight);
   const todayStudiedSubjectIds = new Set(
     sessions
       .filter(s => s.startTime.startsWith(today))
       .map(s => s.subjectId)
   );
-  const nextSubject = sortedByWeight.find(s => !todayStudiedSubjectIds.has(s.id)) || null;
-  const allStudiedToday = subjects.length > 0 && sortedByWeight.every(s => todayStudiedSubjectIds.has(s.id));
+
+  let suggestedSubject = null;
+  let suggestedTopic = null;
+
+  for (const subject of sortedByWeight) {
+    if (todayStudiedSubjectIds.has(subject.id)) continue;
+    
+    const uncompletedTopics = allTopics
+      .filter(t => t.subjectId === subject.id && !t.concluido)
+      .sort((a, b) => {
+         const scoreA = relevanceScore(a.relevance);
+         const scoreB = relevanceScore(b.relevance);
+         if (scoreA !== scoreB) return scoreB - scoreA;
+         return (a.order ?? 0) - (b.order ?? 0);
+      });
+      
+    if (uncompletedTopics.length > 0) {
+      suggestedSubject = subject;
+      suggestedTopic = uncompletedTopics[0];
+      break;
+    }
+  }
+
+  // Se já estudou todas do ciclo de hoje ou sobrou tempo, busca em qualquer matéria não concluída (do maior peso pro menor).
+  if (!suggestedSubject) {
+    for (const subject of sortedByWeight) {
+      const uncompletedTopics = allTopics
+        .filter(t => t.subjectId === subject.id && !t.concluido)
+        .sort((a, b) => {
+           const scoreA = relevanceScore(a.relevance);
+           const scoreB = relevanceScore(b.relevance);
+           if (scoreA !== scoreB) return scoreB - scoreA;
+           return (a.order ?? 0) - (b.order ?? 0);
+        });
+        
+      if (uncompletedTopics.length > 0) {
+        suggestedSubject = subject;
+        suggestedTopic = uncompletedTopics[0];
+        break;
+      }
+    }
+  }
+
+  const allStudiedAndCompleted = subjects.length > 0 && !suggestedSubject;
 
   const pendingReviews = allTopics
     .filter(t => t.theoryProgress > 0 && t.lastStudied)
@@ -503,34 +566,57 @@ const Dashboard = () => {
         </div>
       </motion.div>
 
-      {/* Missão do Dia Dinâmica */}
-      {allStudiedToday ? (
+      {/* Missão do Dia Dinâmica - Card Estudar Agora */}
+      {allStudiedAndCompleted ? (
         <motion.div 
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-r from-green-500/10 to-transparent border border-green-500/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
         >
           <div>
             <h2 className="text-sm font-bold text-green-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-              <CheckCircle2 size={16} /> Missão do Dia — Completa!
+              <CheckCircle2 size={16} /> Meta de Hoje — Concluída!
             </h2>
             <p className="text-2xl font-black">Parabéns, Recruta! 🎉</p>
-            <p className="text-xs text-muted-foreground mt-1">Você já estudou todas as disciplinas do ciclo hoje. Descanse ou revise!</p>
+            <p className="text-xs text-muted-foreground mt-1">Você já concluiu todos os tópicos do edital ou do ciclo atual. Descanse ou revise!</p>
           </div>
         </motion.div>
-      ) : nextSubject ? (
+      ) : suggestedSubject && suggestedTopic ? (
         <motion.div 
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+          className="bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden"
         >
-          <div>
+          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+             <Target size={120} />
+          </div>
+          <div className="z-10 flex-1">
             <h2 className="text-sm font-bold text-primary uppercase tracking-widest mb-1 flex items-center gap-2">
-              <Target size={16} /> Missão do Dia
+              <Target size={16} /> Meta de Hoje
             </h2>
-            <p className="text-2xl font-black">{nextSubject.name}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Próxima disciplina a estudar (Peso {nextSubject.weight}). 
-              {todayStudiedSubjectIds.size > 0 && ` Você já estudou ${todayStudiedSubjectIds.size} de ${subjects.length} disciplinas hoje.`}
-            </p>
+            <p className="text-2xl font-black">{suggestedSubject.name}</p>
+            
+            <div className="mt-4 bg-background/60 backdrop-blur border border-border/50 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-4 justify-between shadow-sm">
+              <div>
+                <p className="font-bold text-foreground text-lg">{suggestedTopic.title}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Incidência:</span>
+                  <span className={cn(
+                    "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                    suggestedTopic.relevance?.toLowerCase() === 'alta' ? "bg-red-500/10 text-red-500" :
+                    suggestedTopic.relevance?.toLowerCase() === 'média' || suggestedTopic.relevance?.toLowerCase() === 'media' ? "bg-yellow-500/10 text-yellow-500" :
+                    "bg-blue-500/10 text-blue-500"
+                  )}>
+                    {suggestedTopic.relevance || 'BAIXA'}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => markTopicAsCompleted(suggestedSubject.id, suggestedTopic.id)}
+                className="bg-primary text-primary-foreground font-bold px-6 py-3 rounded-xl text-sm flex items-center justify-center gap-2 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all whitespace-nowrap shadow-md shadow-primary/20"
+              >
+                <CheckCircle2 size={18} />
+                Marcar como Concluído
+              </button>
+            </div>
           </div>
         </motion.div>
       ) : null}

@@ -28,6 +28,7 @@ export interface Topic {
   lastStudied?: string;
   nextReview?: string;
   relevance?: 'alta' | 'média' | 'baixa';
+  concluido?: boolean;
   studiedResumo: boolean;
   studiedQuestoes: boolean;
   studiedFlashcards: boolean;
