@@ -230,6 +230,47 @@ const SyllabusManager = () => {
     await updateDoc(topicRef, updateData);
   };
 
+  const addSubjectToCycle = (subject: Subject) => {
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const r24Due = format(addDays(parseISO(todayStr + 'T00:00:00'), 1), 'yyyy-MM-dd');
+      const r7Due  = format(addDays(parseISO(todayStr + 'T00:00:00'), 7), 'yyyy-MM-dd');
+      const r30Due = format(addDays(parseISO(todayStr + 'T00:00:00'), 30), 'yyyy-MM-dd');
+      const cycleId = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      
+      const topicName = "Revisão Geral da Disciplina";
+      
+      const newCycle = {
+        id: cycleId,
+        subjectId: subject.id,
+        subjectName: subject.name,
+        topicName: topicName,
+        studyDate: todayStr,
+        createdAt: new Date().toISOString(),
+        inRecovery: false,
+        revisions: [
+          { id: `${cycleId}_r24`, type: 'R24h', dueDate: r24Due, status: 'pending' },
+          { id: `${cycleId}_r7`,  type: 'R7d',  dueDate: r7Due,  status: 'pending' },
+          { id: `${cycleId}_r30`, type: 'R30d', dueDate: r30Due, status: 'pending' },
+        ]
+      };
+
+      const raw = localStorage.getItem('study_reviews_cycle');
+      const cycles = raw ? JSON.parse(raw) : [];
+      const exists = cycles.some((c: any) => c.subjectId === subject.id && c.topicName === topicName);
+      
+      if (!exists) {
+        cycles.push(newCycle);
+        localStorage.setItem('study_reviews_cycle', JSON.stringify(cycles));
+        alert(`Disciplina "${subject.name}" adicionada automaticamente ao Ciclo de Revisões!`);
+      } else {
+        alert(`A Revisão Geral da disciplina "${subject.name}" já está no Ciclo de Revisões.`);
+      }
+    } catch (e) {
+      console.error('Erro ao adicionar ciclo de revisões da disciplina', e);
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -296,8 +337,15 @@ const SyllabusManager = () => {
                 {s.name}
               </button>
               <button
+                onClick={() => addSubjectToCycle(s)}
+                className="p-3 text-orange-500/60 hover:text-orange-500 hover:bg-orange-500/10 rounded-xl transition-colors shrink-0"
+                title="Adicionar Disciplina ao Ciclo de Revisões"
+              >
+                <RotateCcw size={18} />
+              </button>
+              <button
                 onClick={() => handleDeleteSubject(s.id, s.name)}
-                className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors shrink-0"
                 title="Excluir disciplina"
               >
                 <Trash2 size={18} />
