@@ -31,6 +31,7 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, 
 import { parseSyllabus } from './services/geminiService';
 import { DistillationMentor } from './components/DistillationMentor';
 import { ExamSimulator } from './components/ExamSimulator';
+import { CicloRevisoes } from './components/CicloRevisoes';
 
 // --- Components ---
 
@@ -3535,6 +3536,7 @@ const MainApp = () => {
         <nav className="flex-1 space-y-2 overflow-y-auto">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={BookOpen} label="Ciclo" active={activeTab === 'cycle'} onClick={() => { setActiveTab('cycle'); setIsMobileMenuOpen(false); }} />
+          <SidebarItem icon={RotateCcw} label="Ciclo de Revisões" active={activeTab === 'revisoes'} onClick={() => { setActiveTab('revisoes'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Brain} label="Edital" active={activeTab === 'syllabus'} onClick={() => { setActiveTab('syllabus'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Timer} label="Estudar" active={activeTab === 'study'} onClick={() => { setActiveTab('study'); setIsMobileMenuOpen(false); }} />
           <SidebarItem icon={Dumbbell} label="TAF" active={activeTab === 'taf'} onClick={() => { setActiveTab('taf'); setIsMobileMenuOpen(false); }} />
@@ -3569,6 +3571,7 @@ const MainApp = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && <Dashboard key="dash" />}
           {activeTab === 'cycle' && <CycleManager key="cycle" />}
+          {activeTab === 'revisoes' && <CicloRevisoes key="revisoes" />}
           {activeTab === 'syllabus' && <SyllabusManager key="syllabus" />}
           {activeTab === 'study' && <StudyTimer key="study" />}
           {activeTab === 'taf' && <TAFTracker key="taf" />}
