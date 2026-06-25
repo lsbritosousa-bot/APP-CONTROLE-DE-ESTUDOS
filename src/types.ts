@@ -32,6 +32,7 @@ export interface Topic {
   studiedResumo: boolean;
   studiedQuestoes: boolean;
   studiedFlashcards: boolean;
+  studiedRevisao?: boolean;
   order: number;
 }
 

@@ -26,7 +26,7 @@ import { cn } from './lib/utils';
 import { db } from './firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, deleteDoc, doc, updateDoc, increment, getDocs } from './lib/firestoreSupabase';
 import { Subject, Topic, StudySession, TAFSession, ExerciseType } from './types';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isToday, isSameDay } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isToday, isSameDay, addDays } from 'date-fns';
 
 import { parseSyllabus } from './services/geminiService';
 import { DistillationMentor } from './components/DistillationMentor';
@@ -164,14 +164,14 @@ const SyllabusManager = () => {
     }
   };
 
-  const toggleTopicStatus = async (topic: Topic, field: 'studiedResumo' | 'studiedQuestoes' | 'studiedFlashcards') => {
+  const toggleTopicStatus = async (topic: Topic, field: 'studiedResumo' | 'studiedQuestoes' | 'studiedFlashcards' | 'studiedRevisao') => {
     if (!profile || !selectedSubjectId) return;
     const topicRef = doc(db, 'users', profile.uid, 'subjects', selectedSubjectId, 'topics', topic.id);
     
     const newValue = !topic[field];
     const updateData: any = { [field]: newValue };
     
-    // Auto-update theory progress if all 3 are done
+    // Auto-update theory progress if all 3 are done (Revisao doesn't count for base theory)
     const currentResumo = field === 'studiedResumo' ? newValue : topic.studiedResumo;
     const currentQuestoes = field === 'studiedQuestoes' ? newValue : topic.studiedQuestoes;
     const currentFlashcards = field === 'studiedFlashcards' ? newValue : topic.studiedFlashcards;
@@ -183,6 +183,48 @@ const SyllabusManager = () => {
     // Set lastStudied when marking anything as studied
     if (newValue) {
       updateData.lastStudied = new Date().toISOString();
+    }
+
+    // Se for 'Revisão' e estiver sendo marcada como true, criar ciclo automaticamente
+    if (field === 'studiedRevisao' && newValue) {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const r24Due = format(addDays(parseISO(todayStr + 'T00:00:00'), 1), 'yyyy-MM-dd');
+        const r7Due  = format(addDays(parseISO(todayStr + 'T00:00:00'), 7), 'yyyy-MM-dd');
+        const r30Due = format(addDays(parseISO(todayStr + 'T00:00:00'), 30), 'yyyy-MM-dd');
+        const cycleId = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        
+        const subject = subjects.find(s => s.id === selectedSubjectId);
+        
+        const newCycle = {
+          id: cycleId,
+          subjectId: selectedSubjectId,
+          subjectName: subject?.name || 'Matéria',
+          topicName: topic.title,
+          studyDate: todayStr,
+          createdAt: new Date().toISOString(),
+          inRecovery: false,
+          revisions: [
+            { id: `${cycleId}_r24`, type: 'R24h', dueDate: r24Due, status: 'pending' },
+            { id: `${cycleId}_r7`,  type: 'R7d',  dueDate: r7Due,  status: 'pending' },
+            { id: `${cycleId}_r30`, type: 'R30d', dueDate: r30Due, status: 'pending' },
+          ]
+        };
+
+        const raw = localStorage.getItem('study_reviews_cycle');
+        const cycles = raw ? JSON.parse(raw) : [];
+        const exists = cycles.some((c: any) => c.subjectId === selectedSubjectId && c.topicName === topic.title);
+        
+        if (!exists) {
+          cycles.push(newCycle);
+          localStorage.setItem('study_reviews_cycle', JSON.stringify(cycles));
+          alert(`Tópico "${topic.title}" adicionado automaticamente ao Ciclo de Revisões!`);
+        } else {
+          alert(`O tópico "${topic.title}" já está no Ciclo de Revisões.`);
+        }
+      } catch (e) {
+        console.error('Erro ao adicionar ciclo de revisões', e);
+      }
     }
 
     await updateDoc(topicRef, updateData);
@@ -320,6 +362,15 @@ const SyllabusManager = () => {
                       )}
                     >
                       Flashcards
+                    </button>
+                    <button 
+                      onClick={() => toggleTopicStatus(t, 'studiedRevisao')}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                        t.studiedRevisao ? "bg-orange-500/10 text-orange-500 border-orange-500/20" : "bg-muted text-muted-foreground border-transparent"
+                      )}
+                    >
+                      Revisão
                     </button>
                   </div>
                 </div>
@@ -1692,7 +1743,8 @@ const SettingsPage = () => {
             correctAnswers: 0,
             studiedResumo: false,
             studiedQuestoes: false,
-            studiedFlashcards: false
+            studiedFlashcards: false,
+            studiedRevisao: false
           });
         }
       }
